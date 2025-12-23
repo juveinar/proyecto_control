@@ -1,0 +1,690 @@
+:root {
+            --ai-dark-bg: #10141c;
+            --ai-surface: #1b212f;
+            --ai-primary: #00aaff;
+            --ai-secondary: #8a93a3;
+            --ai-text: #e0e0e0;
+            --ai-glow: rgba(0, 255, 196, 0.15);
+            --bs-success-rgb: 0, 255, 196;
+            --bs-info-rgb: 0, 170, 255;
+            --bs-warning-rgb: 255, 222, 0;
+        }
+        html { font-size: 14px; }
+        body { background-color: var(--ai-dark-bg); color: var(--ai-text); font-family: 'Poppins', sans-serif; }
+
+        #app-container { padding-top: 1rem; }
+        .header-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        #header-logo {
+            width: 40px;
+            height: 40px;
+        }
+        .container-fluid { padding-left: 1.5rem; padding-right: 1.5rem; }
+
+        .title-gradient { background: linear-gradient(90deg, var(--ai-primary), #c379f9, var(--ai-primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: gradient-flow 8s ease infinite; background-size: 200% auto; }
+        @keyframes gradient-flow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+
+        .table { --bs-table-bg: var(--ai-surface); --bs-table-border-color: #30384a; --bs-table-hover-bg: var(--ai-glow); font-size: 0.9rem; vertical-align: middle; }
+        .table .badge { font-size: inherit; font-weight: 600; }
+        .badge.badge-ok { background: linear-gradient(135deg, #005242, #00876c); color: #fff; border: 1px solid #00ffc4; }
+        .badge.badge-en-curso { background: linear-gradient(135deg, #40E0D0, #FFD700); color: #000; border: 1px solid #40E0D0; }
+
+        /* Nuevo contenedor para el efecto de borde con gradiente */
+        .table-wrapper {
+            position: relative;
+            padding: 3px 0; /* Grosor del borde solo arriba y abajo */
+            border-radius: 1rem; /* Curva pronunciada */
+            background: linear-gradient(90deg, var(--ai-primary), #00ffc4, var(--ai-primary));
+            overflow: hidden;
+            margin-top: 1.5rem; /* Espacio sutil entre los contadores y la tabla */
+        }
+
+        .table-container {
+            background-color: var(--ai-surface); /* Fondo para la tabla */
+            border-radius: 1rem 1rem 0 0; /* Curva exterior superior */
+            overflow: hidden;
+        }
+
+        /* Elimina el margen inferior por defecto de la tabla para unirla con la paginación */
+        .table-container .table {
+            margin-bottom: 0;
+        }
+
+        .btn-primary { --bs-btn-bg: var(--ai-primary); --bs-btn-border-color: var(--ai-primary); --bs-btn-hover-bg: #0077b3; --bs-btn-hover-border-color: #0077b3; --bs-btn-active-bg: #005a8a; --bs-btn-active-border-color: #005a8a; --bs-btn-color: #000; }
+                .modal-content { background-color: var(--ai-surface); background-image: radial-gradient(ellipse at top, #1b3a4a, var(--ai-surface)); border: 1px solid var(--ai-primary); box-shadow: 0 0 25px rgba(0, 170, 255, 0.1); }
+        .modal-header { background: linear-gradient(90deg, #5e42a6 0%, #00d4ff 100%); border-bottom: 1px solid var(--ai-primary); }
+        .modal-title, #projectModalLabel, #detailsModalLabel { user-select: text; }
+        .modal-body { font-size: 0.9rem; }
+        .form-control, .form-select { background-color: #30384a; border-color: #55627e; color: var(--ai-text); font-size: inherit; }
+        .form-control:focus { background-color: #3c465c; border-color: var(--ai-primary); box-shadow: 0 0 8px rgba(0, 170, 255, 0.3); }
+        .form-control:read-only { background-color: #404a60; }
+        .form-check-input:checked { background-color: var(--ai-primary); border-color: var(--ai-primary); }
+        .overdue, .upcoming-event { color: #ff4d8a; font-weight: bold; }
+        .action-icons { cursor: pointer; margin-left: 8px; opacity: 0.8; transition: opacity 0.2s, transform 0.2s; }
+        .action-icons:hover { opacity: 1; transform: scale(1.2); }
+        .detail-label { font-weight: bold; color: var(--ai-primary); }
+        .stat-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.5rem; background-color: var(--ai-surface); border: 2px solid #30384a; cursor: pointer; transition: all 0.2s ease; }
+        .stat-card:hover { border-color: var(--ai-primary); }
+        .stat-card.active.finished { border-color: #00ffc4; box-shadow: 0 0 15px rgba(0, 255, 196, 0.3); }
+        .stat-card.active.not-finished { border-color: #ffde00; box-shadow: 0 0 15px rgba(255, 222, 0, 0.3); }
+        .stat-card svg { width: 1.75rem; height: 1.75rem; opacity: 0.9; }
+        .stat-text .stat-label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.1rem; }
+        .stat-text .stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+        .stat-card.finished svg, .stat-card.finished .stat-text { color: #00ffc4; text-shadow: 0 0 8px rgba(0, 255, 196, 0.3); }
+        .stat-card.not-finished svg, .stat-card.not-finished .stat-text { color: #ffde00; text-shadow: 0 0 8px rgba(255, 222, 0, 0.3); }
+        #chart-container {
+            height: 220px; /* Altura más reducida */
+            width: 100%;
+            max-width: 500px; /* Ancho máximo más reducido */
+            margin: 0; /* Eliminado el centrado automático */
+            background-color: var(--ai-surface);
+            padding: 1rem; border-radius: 0.5rem; border: 1px solid #30384a;
+        }
+
+        #pendientes-section {
+            background-color: var(--ai-surface);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #30384a;
+            height: 100%; /* Para que ocupe la misma altura que el gráfico */
+        }
+
+        /* Contenedor de la barra superior con estilo AI */
+        .top-bar {
+            display: flex; /* Clave para alinear los elementos horizontalmente */
+            align-items: center;
+            border-bottom: 1px solid #30384a; /* Solo la línea inferior */
+            padding-bottom: 1rem; /* Espacio debajo de la línea */
+            margin-bottom: 1.5rem;
+            /* gap: 1rem; ya no es necesario aquí */
+        }
+
+        /* Contenedor principal para los controles de la derecha */
+        .top-controls-wrapper {
+            display: flex;
+            align-items: center;
+            margin-left: auto; /* Empuja los controles a la derecha */
+            gap: 0.5rem;
+        }
+
+        /* Contenedor de Controles AI */
+        .ai-controls-container {
+            display: flex;
+            align-items: center;
+            background-color: var(--ai-surface);
+            border: 1px solid #30384a;
+            border-radius: 50px; /* Forma de píldora */
+            padding: 0.3rem 0.5rem;
+            gap: 0.5rem;
+            width: auto;
+        }
+
+        .search-wrapper {
+            display: flex;
+            align-items: center;
+            padding-left: 0.75rem;
+        }
+        .search-wrapper svg {
+            color: var(--ai-secondary);
+            width: 1rem;
+            height: 1rem;
+            margin-right: 0.5rem;
+        }
+        .ai-controls-container #searchInput {
+            background-color: var(--ai-dark-bg); color: var(--ai-text); font-family: 'Poppins', sans-serif;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0.25rem 0;
+            color: var(--ai-text);
+            width: 180px;
+        }
+        .ai-controls-container #searchInput::placeholder {
+            color: var(--ai-secondary);
+        }
+        .control-separator {
+            width: 1px;
+            height: 24px;
+            background-color: #30384a;
+        }
+        .ai-controls-container .form-ckech {
+            margin: 0 0.5rem;
+            padding-top: 0.2rem;
+        }
+        .ai-controls-container #addProjectBtn {
+            border: none;
+            background-color: transparent;
+            color: var(--ai-primary);
+            display: flex;
+            align-items: center;
+            padding: 0.3rem 0.5rem;
+        }
+        #profile-container #profileBtn {
+            background-color: var(--ai-surface);
+            border: 1px solid #30384a;
+            color: var(--ai-secondary);
+            padding: 0.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ai-controls-container #addProjectBtn:hover,
+        #profile-container #profileBtn:hover,
+        #hamburger-container #hamburger-btn:hover {
+            background-color: rgba(0, 170, 255, 0.15);
+            color: var(--ai-primary);
+        }
+
+        /* Estilos para el menú desplegable del perfil */
+        .profile-dropdown {
+            background-color: var(--ai-surface);
+            border: 1px solid #30384a;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            padding: 0.5rem 0;
+        }
+        .profile-dropdown .dropdown-item {
+            color: var(--ai-secondary);
+        }
+        .profile-dropdown .dropdown-item:hover {
+            background-color: var(--ai-glow);
+            color: var(--ai-text);
+        }
+
+        #hamburger-container #hamburger-btn {
+            background-color: var(--ai-surface);
+            border: 1px solid #30384a;
+            color: var(--ai-secondary);
+            padding: 0.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Estilos para el menú lateral (Offcanvas) */
+        .offcanvas {
+            background-color: var(--ai-dark-bg);
+            border-left: 1px solid #30384a;
+            background-image: radial-gradient(ellipse at top right, #1b3a4a, var(--ai-dark-bg) 60%);
+        }
+        .offcanvas-header {
+            border-bottom: 1px solid #30384a;
+        }
+        .offcanvas-title {
+            font-weight: 600;
+        }
+        .offcanvas .btn-close {
+            filter: invert(1) grayscale(100%) brightness(2);
+        }
+        .offcanvas .nav-link {
+            color: var(--ai-secondary);
+            font-size: 1.1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .offcanvas .nav-link:hover {
+            background-color: var(--ai-glow);
+            color: var(--ai-text);
+        }
+        .offcanvas .nav-link svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Estilo sutil para el encabezado de la tabla */
+        .thead-animated-gradient {
+            background-color: var(--ai-surface); /* Fondo sólido acorde a la tabla */
+            border-bottom: 2px solid var(--ai-primary); /* Línea inferior para separar */
+            color: var(--ai-text); /* Color de texto estándar */
+        }
+
+        #pendientes-table-body .icon-pendiente {
+            color: #ff4d8a; /* Rojo para pendientes */
+            text-shadow: 0 0 8px rgba(255, 77, 138, 0.5);
+        }
+
+        #pendientes-table-body .icon-en-curso {
+            color: #ffde00; /* Amarillo para en curso */
+            text-shadow: 0 0 8px rgba(255, 222, 0, 0.5);
+        }
+
+        #pendientes-table-body .project-name-link {
+            color: var(--ai-primary);
+            font-weight: 600;
+        }
+
+        #pendientes-table-body td {
+            vertical-align: middle;
+        }
+
+        @keyframes spin-gradient {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Botón para mostrar/ocultar el widget de eventos */
+        #event-toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 52px; /* Tamaño ajustado para el borde */
+            height: 52px; /* Tamaño ajustado para el borde */
+            background-color: var(--ai-surface);
+            border: none; /* Eliminamos el borde estático */
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1040;
+            transition: all 0.3s ease, background-color 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 170, 255, 0.2);
+            /* Centrar el icono SVG */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* overflow: hidden; ya no es necesario */
+        }
+
+        #event-toggle-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: conic-gradient(
+                from 180deg at 50% 50%,
+                #ff4d8a, #ffde00, var(--ai-primary), #ff4d8a
+            );
+            border-radius: 50%;
+            animation: spin-gradient 4s linear infinite;
+            z-index: 0; /* Capa base del gradiente */
+        }
+
+        /* Estilo de advertencia para el botón cuando un evento está próximo */
+        #event-toggle-btn.warning::before {
+            background: conic-gradient(
+                from 180deg at 50% 50%,
+                #ff0000, #ff4d8a, #ff7e00, #ff0000
+            );
+        }
+        #event-toggle-btn.warning svg {
+            color: #ff4d8a;
+        }
+
+        #event-toggle-btn::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px; /* Crea el grosor del borde */
+            background-color: var(--ai-surface); /* Color del interior del botón */
+            border-radius: 50%;
+            z-index: 1; /* Se superpone al gradiente, dejando solo el borde */
+        }
+
+        #event-toggle-btn svg {
+            width: 22px; /* Tamaño del icono */
+            height: 22px; /* Tamaño del icono */
+            color: var(--ai-primary);
+            transition: transform 0.3s ease;
+            z-index: 2; /* El icono está por encima de todo */
+        }
+
+        #event-toggle-btn:hover {
+            transform: scale(1.1); /* Efecto hover más sutil */
+            box-shadow: 0 8px 25px rgba(0, 170, 255, 0.4);
+        }
+
+        /* Widget de Eventos */
+        #event-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.03);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.55);
+            z-index: 1050; /* Asegura que esté sobre otros elementos */
+            transition: transform 0.4s cubic-bezier(.2,.9,.22,1), opacity 0.4s ease, box-shadow 220ms ease;
+            overflow: hidden;
+            backdrop-filter: blur(6px);
+            /* Oculto por defecto */
+            transform: translateY(50px) scale(0.9);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .event-widget-header {
+            /* Ocultamos el header ya que no tiene contenido */
+            display: none;
+        }
+
+        .event-widget-body {
+            /* Aumentamos el padding superior para compensar la ausencia del header */
+            padding: 1rem;
+            padding-top: 1.2rem;
+            max-height: 360px;
+            overflow-y: auto;
+            transition: all 0.28s ease-in-out;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Estilo para mostrar el widget */
+        #event-widget.visible {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Acciones ocultas por defecto; se revelan al pasar el cursor o con el foco del teclado */
+        .event-widget-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 0.9rem;
+        }
+
+        .event-widget-actions .btn {
+            border: none;
+            background-color: transparent;
+            color: var(--ai-secondary);
+            display: flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+            opacity: 0;
+            transform: translateY(0);
+            transition: opacity 180ms ease, transform 160ms ease, background-color 160ms ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Revelar botones cuando se pasa el cursor sobre el widget, se enfoca, o cuando un botón recibe el foco (teclado) */
+        #event-widget:hover .event-widget-actions .btn,
+        #event-widget:focus-within .event-widget-actions .btn,
+        .event-widget-actions .btn:focus {
+            /* revelado suave cuando el widget está en hover/foco */
+            opacity: 0.92;
+            transform: translateY(-2px);
+            color: var(--ai-primary);
+            background-color: rgba(0,170,255,0.06);
+        }
+
+        /* iluminación más fuerte al pasar el cursor directamente sobre el ícono/botón */
+        .event-widget-actions .btn:hover {
+            opacity: 1;
+            transform: translateY(-3px);
+            color: #fff;
+            background-color: rgba(0,170,255,0.18);
+            box-shadow: 0 8px 24px rgba(0,170,255,0.10);
+        }
+
+        .event-widget-actions .btn:focus {
+            opacity: 1;
+            transform: translateY(-3px);
+            color: #fff;
+            background-color: rgba(0,170,255,0.18);
+            box-shadow: 0 8px 24px rgba(0,170,255,0.10);
+            outline: 2px solid rgba(0,170,255,0.16);
+            outline-offset: 2px;
+        }
+
+        /* Brillo diagonal sutil (suave, desenfocado) a través de la tarjeta */
+        #event-widget::before {
+            content: "";
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            width: 150%;
+            height: 200%;
+            transform: rotate(-45deg) translate(-150%, 50%);
+            background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 1;
+            filter: blur(12px);
+            will-change: transform, opacity;
+        }
+
+        @keyframes shimmer-line {
+            10% { transform: rotate(-45deg) translate(-150%, -150%); opacity: 0; }
+            40% { opacity: 0.6; }
+            60% { opacity: 0.6; }
+            90% { transform: rotate(-45deg) translate(150%, 150%); opacity: 0; }
+        }
+
+    /* ejecuta un brillo lento y continuo para un acento suave */
+    #event-widget::before { animation: shimmer-line 7.2s linear infinite; }
+
+        /* Contorno de foco accesible para usuarios de teclado */
+        .event-widget-actions .btn:focus {
+            outline: 2px solid rgba(0,170,255,0.12);
+            outline-offset: 3px;
+        }
+
+        #next-event-content h5 {
+            color: var(--ai-primary);
+        }
+
+        #next-event-content p {
+            margin-bottom: 0.25rem;
+            font-size: 0.8rem;
+        }
+
+        .modal-footer.left-aligned {
+            justify-content: flex-start;
+        }
+
+        .modal-footer .btn {
+            border: none;
+            background-color: transparent;
+            color: var(--ai-primary);
+            display: flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+        }
+
+        .modal-footer .btn:hover {
+            background-color: rgba(0, 170, 255, 0.15);
+            color: var(--ai-primary);
+        }
+
+        .modal-footer .btn-secondary {
+            background-color: transparent;
+            color: var(--ai-secondary);
+            border: 1px solid var(--ai-secondary);
+        }
+
+        .modal-footer .btn-secondary:hover {
+            background-color: rgba(138, 147, 163, 0.15);
+            color: var(--ai-text);
+            border-color: var(--ai-text);
+        }
+
+        #pagination-container {
+            background-color: var(--ai-surface);
+            padding: 0.75rem;
+            border-radius: 0 0 1rem 1rem; /* Curva exterior inferior */
+            margin-top: 0;
+        }
+        #page-info { font-size: 0.9rem !important; color: var(--ai-secondary) !important; }
+
+        /* Estilos para los botones de paginación */
+        .btn-pagination {
+            background-color: transparent;
+            border: 1px solid #30384a;
+            color: var(--ai-secondary);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .btn-pagination:not(:disabled):hover {
+            background-color: var(--ai-glow);
+            color: var(--ai-primary);
+            border-color: var(--ai-primary);
+        }
+        /* Elimina el anillo de foco azul al hacer clic */
+        .no-focus-ring:focus {
+            outline: 0 !important;
+            box-shadow: none !important;
+        }
+        /* Estilo para los botones deshabilitados, con !important para máxima prioridad */
+        .btn-pagination:disabled {
+            opacity: 0.3 !important;
+            cursor: not-allowed !important;
+            background-color: transparent !important;
+            outline: none;
+        }
+
+/* --- ESTILOS PÁGINA DE LOGIN --- */
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.login-box {
+    width: 100%;
+    max-width: 400px;
+    padding: 2.5rem;
+    background-color: var(--ai-surface);
+    border: 1px solid #30384a;
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-logo {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 1rem;
+}
+
+.btn-login {
+    padding: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.login-footer {
+    margin-top: 2rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--ai-secondary);
+}
+
+        .login-footer p {
+            margin-bottom: 0.25rem;
+        }
+
+        /* Widget de progreso para Generar Informe con IA */
+        #informe-progress-widget {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #0d47a1, #1565c0);
+            border: 1px solid #00d4ff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            z-index: 1040;
+            min-width: 300px;
+            max-width: 400px;
+            padding: 12px;
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            opacity: 0;
+            transform: translateY(450px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #informe-progress-widget.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #informe-progress-widget-header {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.5);
+        }
+
+        .informe-progress-widget-body {
+            font-size: 0.85rem;
+        }
+
+/* --- Custom Accordion Styles (Minimalist) --- */
+.accordion-item {
+    background-color: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(to right, #00ffc4, #00876c);
+    border-image-slice: 1;
+    border-radius: 0 !important;
+    margin-bottom: 0;
+    box-shadow: none;
+}
+
+.accordion-item:last-of-type {
+    border-bottom: none;
+}
+
+.accordion-header .accordion-button {
+    background-color: transparent;
+    font-weight: 600;
+    padding: 1rem 0;
+    background: linear-gradient(to right, #00ffc4, #00876c);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+}
+
+.accordion-header .accordion-button:hover {
+    opacity: 1;
+}
+
+.accordion-header .accordion-button:not(.collapsed) {
+    background: linear-gradient(to right, #00ffc4, #20e2a8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.accordion-button:focus {
+    box-shadow: none;
+    border-color: transparent;
+}
+
+.accordion-button:not(.collapsed)::after {
+    filter: brightness(0) saturate(100%) invert(60%) sepia(99%) saturate(2371%) hue-rotate(167deg) brightness(105%) contrast(102%); /* --ai-primary color */
+}
+
+.accordion-button::after {
+    filter: invert(1) grayscale(100%) brightness(2); /* White arrow */
+}
+
+.accordion-body {
+    background-color: transparent;
+    padding: 1rem 0;
+}
