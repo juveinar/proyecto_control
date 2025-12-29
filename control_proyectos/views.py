@@ -69,14 +69,19 @@ def api_projects(request):
         for p in proyectos:
             # Obtener la fase más reciente
             fase_actual = p.fases.order_by('-fecha', '-created_at').first()
-            fase_str = f"{fase_actual.get_fase_display()} ({fase_actual.fecha.strftime('%Y-%m-%d')})" if fase_actual else "Sin Fase"
+            if fase_actual:
+                fase_str = f"{fase_actual.get_fase_display()} ({fase_actual.fecha.strftime('%Y-%m-%d')})"
+            elif p.estado == 'En Curso':
+                fase_str = "Despliegue (No registrado)"
+            else:
+                fase_str = "Sin Fase"
 
             proyecto_dict = {
                 'Id Project': p.id_project,
                 'RF': p.rf or '',
                 'Project': p.project or '',
                 'Project Leader': p.project_leader or '',
-                'FINALIZADO': p.finalizado or '',
+                'Estado': p.estado or '',
                 'Fase': fase_str,  # Nuevo campo para la tabla
                 '% Complete': p.percent_complete or 0.0,
                 'Start': p.start.strftime('%Y-%m-%d') if p.start else None,
@@ -189,8 +194,8 @@ def api_projects_add(request):
             proyecto.project = data['Project']
         if 'Project Leader' in data:
             proyecto.project_leader = data['Project Leader']
-        if 'FINALIZADO' in data:
-            proyecto.finalizado = data['FINALIZADO']
+        if 'Estado' in data:
+            proyecto.estado = data['Estado']
         if '% Complete' in data:
             try:
                 proyecto.percent_complete = float(data['% Complete'])
@@ -270,7 +275,7 @@ def api_projects_add(request):
             'RF': proyecto.rf or '',
             'Project': proyecto.project or '',
             'Project Leader': proyecto.project_leader or '',
-            'FINALIZADO': proyecto.finalizado or '',
+            'Estado': proyecto.estado or '',
             'Fase': f"Despliegue ({timezone.now().strftime('%Y-%m-%d')})",
             '% Complete': proyecto.percent_complete or 0.0,
             'Start': proyecto.start.strftime('%Y-%m-%d') if proyecto.start else None,
@@ -315,8 +320,8 @@ def api_projects_update(request, project_id):
             proyecto.project = data['Project']
         if 'Project Leader' in data:
             proyecto.project_leader = data['Project Leader']
-        if 'FINALIZADO' in data:
-            proyecto.finalizado = data['FINALIZADO']
+        if 'Estado' in data:
+            proyecto.estado = data['Estado']
         if '% Complete' in data:
             try:
                 proyecto.percent_complete = float(data['% Complete'])
@@ -412,13 +417,23 @@ def api_projects_update(request, project_id):
             except Exception as e:
                 print(f"Error actualizando fase: {e}")
 
+        # Obtener la fase más reciente para la respuesta
+        fase_actual = proyecto.fases.order_by('-fecha', '-created_at').first()
+        if fase_actual:
+            fase_str = f"{fase_actual.get_fase_display()} ({fase_actual.fecha.strftime('%Y-%m-%d')})"
+        elif proyecto.estado == 'En Curso':
+            fase_str = "Despliegue (No registrado)"
+        else:
+            fase_str = "Sin Fase"
+
         # Retornar el proyecto actualizado
         proyecto_dict = {
             'Id Project': proyecto.id_project,
             'RF': proyecto.rf or '',
             'Project': proyecto.project or '',
             'Project Leader': proyecto.project_leader or '',
-            'FINALIZADO': proyecto.finalizado or '',
+            'Estado': proyecto.estado or '',
+            'Fase': fase_str,
             '% Complete': proyecto.percent_complete or 0.0,
             'Start': proyecto.start.strftime('%Y-%m-%d') if proyecto.start else None,
             'Finish': proyecto.finish.strftime('%Y-%m-%d') if proyecto.finish else None,
@@ -482,7 +497,7 @@ def api_projects_update_status(request, project_id):
             'NTP': 'ntp',
             'SCAN': 'scan',
             'RESUELVE POR NOMBRE': 'resuelve_por_nombre',
-            'ANTIVIRUS': 'antivirus',
+            'Antivirus': 'antivirus',
             'CONFIG BACKUP': 'config_backup',
             'MONITOREO NAGIOS': 'monitoreo_nagios',
             'MONITOREO ELASTIC': 'monitoreo_elastic',
@@ -736,7 +751,7 @@ def generar_informe_ia(request):
         return redirect('index')
 
     # Obtener proyectos en curso
-    proyectos_en_curso = Proyecto.objects.filter(finalizado='En Curso')
+    proyectos_en_curso = Proyecto.objects.filter(estado='En Curso')
 
     if not proyectos_en_curso.exists():
         if is_xhr:
@@ -755,7 +770,7 @@ def generar_informe_ia(request):
             "RF": proyecto.rf or 'N/A',
             "Nombre del Proyecto": proyecto.project or 'N/A',
             "Progreso": f"{proyecto.percent_complete * 100:.2f}%",
-            "Estado": proyecto.finalizado or 'N/A',
+            "Estado": proyecto.estado or 'N/A',
             "Líder de Proyecto": proyecto.project_leader or 'N/A',
             "Inicio Real": proyecto.start.strftime('%Y-%m-%d') if proyecto.start else 'N/A',
             "Fin Real": proyecto.finish.strftime('%Y-%m-%d') if proyecto.finish else 'N/A',

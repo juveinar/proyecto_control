@@ -13,7 +13,7 @@ class Proyecto(models.Model):
     project_leader = models.CharField(max_length=255, verbose_name="Líder de Proyecto", blank=True, null=True)
 
     # Estado y progreso
-    finalizado = models.CharField(max_length=50, verbose_name="Finalizado", default="En Curso", blank=True, null=True)
+    estado = models.CharField(max_length=50, verbose_name="Estado", default="Despliegue", blank=True, null=True)
     percent_complete = models.FloatField(
         verbose_name="% Complete",
         default=0.0,
@@ -73,7 +73,7 @@ class Proyecto(models.Model):
         ordering = ['-start', 'project']
         indexes = [
             models.Index(fields=['id_project']),
-            models.Index(fields=['finalizado']),
+            models.Index(fields=['estado']),
             models.Index(fields=['start']),
         ]
 

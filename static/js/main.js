@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const projectsPerPage = 10;
 
         // Configuración de columnas para la tabla y los modales
-        const visibleColumns = ['Id Project', 'Project', 'FINALIZADO', 'Fase', 'Start', 'Finish', 'RF'];
+        const visibleColumns = ['Id Project', 'Project', 'Estado', 'Fase', 'Start', 'Finish', 'RF'];
         const dateColumns = ['Start', 'Finish'];
 const detailColumns = [
     'CONTACTO',
@@ -155,14 +155,13 @@ const detailColumns = [
     'CAMBIO PASO OPERACIÓN (OLA)',
     'Computo'
 ];
-        const addProjectFields = ['Id Project', 'Project', 'Status', 'Start', 'Finish', 'RF', 'Computo'];
+        const addProjectFields = ['Id Project', 'Project', 'Estado', 'Start', 'Finish', 'RF', 'CONTACTO', 'OBSERVACIONES'];
         const editExcludeFields = ['% Complete', 'Unnamed: 22', 'External Costs'];
         const masterFieldOrder = [
             'Id Project',
             'Project',
             'RF',
-            'Status',
-            'FINALIZADO',
+            'Estado',
             'Start',
             'Finish',
             'OBSERVACIONES',
@@ -339,12 +338,11 @@ const detailColumns = [
          */
         function getStyledContent(value) {
             const s = String(value ?? '').trim().toLowerCase();
-            if (s === 'ok' || s === 'finalizado') return `<span class="badge badge-ok">OK</span>`;
+            if (s === 'finalizado') return `<span class="badge badge-ok">${value}</span>`;
             if (s === 'suspendido') return `<span class="badge bg-warning text-dark">${value}</span>`;
             if (s.includes('pendiente')) return `<span class="badge bg-danger">${value}</span>`;
             if (s.includes('en curso')) return `<span class="badge badge-en-curso">${value}</span>`;
             if (s.includes('mitigar')) return `<span class="badge bg-danger">${value}</span>`;
-            if (s.includes('execution')) return `<span class="badge bg-primary">${value}</span>`;
             if (s.includes('cancelado')) return `<span class="badge bg-secondary">${value}</span>`;
             return value;
         }
@@ -373,7 +371,7 @@ const detailColumns = [
             }
 
             // Actualiza los contadores de "Finalizados" y "No Finalizados"
-            const finishedCount = projectsToDisplay.filter(p => p.FINALIZADO && String(p.FINALIZADO).trim().toLowerCase() === 'ok').length;
+            const finishedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'finalizado').length;
             const notFinishedCount = projectsToDisplay.length - finishedCount;
             document.getElementById('finished-count').textContent = finishedCount;
             document.getElementById('not-finished-count').textContent = notFinishedCount;
@@ -383,12 +381,12 @@ const detailColumns = [
 
             // Aplica filtro de "No Finalizados"
             if (currentStatusFilter === 'not-finished') {
-                projectsToDisplay = projectsToDisplay.filter(p => !p.FINALIZADO || String(p.FINALIZADO).trim().toLowerCase() !== 'ok');
+                projectsToDisplay = projectsToDisplay.filter(p => !p.Estado || String(p.Estado).trim().toLowerCase() !== 'finalizado');
             }
 
             // Aplica filtro de "Finalizados"
             if (currentStatusFilter === 'finished') {
-                projectsToDisplay = projectsToDisplay.filter(p => p.FINALIZADO && String(p.FINALIZADO).trim().toLowerCase() === 'ok');
+                projectsToDisplay = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'finalizado');
             }
 
             // Aplica filtro de búsqueda
@@ -488,7 +486,7 @@ const detailColumns = [
             formContainer.innerHTML = ''; // Limpiar contenido anterior
 
             const fieldGroups = {
-                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'FINALIZADO', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'Status'],
+                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO'],
                 'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
@@ -497,21 +495,24 @@ const detailColumns = [
             const checklistOptions = ['Pendiente', 'En Curso', 'OK', 'N/A'];
 
             const generateFieldHtml = (col, proj) => {
-                let value = proj[col] ?? '';
-                if (!isEdit && col === 'Status') { value = 'Execution'; }
+                const value = proj[col] ?? '';
                 let fieldHtml = '';
 
                 // Determinar el contenedor y la clase de columna. 'Computo' y 'OBSERVACIONES' ocupan todo el ancho.
                 const colClass = (col === 'Computo' || col === 'OBSERVACIONES') ? 'col-12' : 'col-md-6';
 
-                if (isEdit && col === 'FINALIZADO') {
-                    fieldHtml += `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label>`;
-                    fieldHtml += `<select class="form-select" id="field-${col}" name="${col}">`;
-                    const options = { 'En Curso': 'En Curso', 'OK': 'OK', 'Suspendido': 'Suspendido' };
+                if (isEdit && col === 'Estado') {
+                    fieldHtml += `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><select class="form-select" id="field-${col}" name="${col}">`;
+                    const options = { 'En Curso': 'En Curso', 'Finalizado': 'Finalizado', 'Cerrado': 'Cerrado', 'Suspendido': 'Suspendido' };
                     let currentStatus = 'En Curso';
                     const lowerCaseValue = String(value).trim().toLowerCase();
-                    if (lowerCaseValue === 'ok') currentStatus = 'OK';
-                    else if (lowerCaseValue === 'suspendido') currentStatus = 'Suspendido';
+                    if (lowerCaseValue === 'finalizado') {
+                        currentStatus = 'Finalizado';
+                    } else if (lowerCaseValue === 'cerrado') {
+                        currentStatus = 'Cerrado';
+                    } else if (lowerCaseValue === 'suspendido') {
+                        currentStatus = 'Suspendido';
+                    }
                     for (const optValue in options) {
                         fieldHtml += `<option value="${optValue}" ${currentStatus === optValue ? 'selected' : ''}>${options[optValue]}</option>`;
                     }
@@ -527,16 +528,29 @@ const detailColumns = [
                     fieldHtml = `<div class="col-12 mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><textarea class="form-control" id="field-${col}" name="${col}" rows="4">${value}</textarea></div>`;
                 } else {
                     const isDate = dateColumns.includes(col);
-                    const isReadOnly = isEdit && col === 'Id Project';
+                    const isReadOnly = (isEdit && col === 'Id Project') || (!isEdit && col === 'Estado');
                     const inputType = isDate ? 'date' : 'text';
                     const formValue = inputType === 'date' && value ? value.split('T')[0] : value;
-                    fieldHtml = `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><input type="${inputType}" class="form-control" id="field-${col}" name="${col}" value="${formValue}" ${isReadOnly ? 'readonly' : ''}></div>`;
+
+                // Para el modo de agregar, establecer el valor por defecto de 'Estado'
+                let finalValue = formValue;
+                if (!isEdit && col === 'Estado') {
+                    finalValue = 'En Curso';
+                }
+
+                fieldHtml = `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><input type="${inputType}" class="form-control" id="field-${col}" name="${col}" value="${finalValue}" ${isReadOnly ? 'readonly' : ''}></div>`;
                 }
                 return fieldHtml;
             };
 
             let accordionHtml = '<div class="accordion" id="editAccordion">';
             Object.entries(fieldGroups).forEach(([groupName, fields], index) => {
+                // Si no estamos en modo de edición (es decir, agregando un nuevo proyecto),
+                // y el grupo actual no es "Detalles del Proyecto", lo saltamos.
+                if (!isEdit && groupName !== 'Detalles del Proyecto') {
+                    return; // Esto continúa con la siguiente iteración del bucle.
+                }
+
                 const accordionId = `edit-collapse-${index}`;
                 const headerId = `edit-header-${index}`;
                 accordionHtml += `
@@ -589,7 +603,7 @@ const detailColumns = [
             const detailsBody = document.getElementById('detailsModalBody');
 
             const fieldGroups = {
-                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'FINALIZADO', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'Status'],
+                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO'],
                 'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
@@ -760,15 +774,15 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
 
-    // FormData no maneja textareas, así que lo agregamos manualmente.
-    const computoTextarea = document.getElementById('field-Computo');
-    if (computoTextarea) {
-        data['Computo'] = computoTextarea.value;
-    }
-
     // Convertir el Id de proyecto a número
     if (data['Id Project']) {
         data['Id Project'] = parseFloat(data['Id Project']);
+    }
+
+    // Si es un nuevo proyecto, agregar la fase de Despliegue automáticamente
+    if (!isEdit) {
+        data.fase = 'Despliegue';
+        data.fase_date = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
     }
 
     try {
@@ -842,12 +856,12 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             pendientesTitle.textContent = 'Resumen de Pendientes';
 
             // Filtrar proyectos que no están finalizados (FINALIZADO !== 'OK')
-            const notFinishedProjects = allProjects.filter(p => !p.FINALIZADO || String(p.FINALIZADO).trim().toLowerCase() !== 'ok');
+            const notFinishedProjects = allProjects.filter(p => !p.Estado || String(p.Estado).trim().toLowerCase() !== 'finalizado');
 
             if (notFinishedProjects.length > 0) {
                 // Definir campos a excluir de la detección de pendientes/en curso
                 const excludedKeysForPendientesCheck = new Set([
-                    'Id Project', 'Project', 'FINALIZADO', 'Status', 'Start', 'Finish', 'RF', 'Computo',
+                    'Id Project', 'Project', 'Estado', 'Start', 'Finish', 'RF', 'Computo',
                     '% Complete', 'Unnamed: 22', 'Budget', 'Baseline Start', 'Baseline Finish', 'External Costs',
                     'RESUELVE POR NOMBRE', 'FGN 172.22.16.93'
                 ]);

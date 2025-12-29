@@ -4,8 +4,8 @@ from .models import Proyecto, Evento, ProyectoFase
 
 @admin.register(Proyecto)
 class ProyectoAdmin(admin.ModelAdmin):
-    list_display = ['id_project', 'project', 'finalizado', 'percent_complete', 'start', 'finish']
-    list_filter = ['finalizado', 'start']
+    list_display = ['id_project', 'project', 'estado', 'percent_complete', 'start', 'finish']
+    list_filter = ['estado', 'start']
     search_fields = ['id_project', 'rf', 'project']
     readonly_fields = ['created_at', 'updated_at']
     fieldsets = (
@@ -13,7 +13,7 @@ class ProyectoAdmin(admin.ModelAdmin):
             'fields': ('id_project', 'rf', 'project', 'project_leader')
         }),
         ('Estado y Progreso', {
-            'fields': ('finalizado', 'percent_complete')
+            'fields': ('estado', 'percent_complete')
         }),
         ('Fechas', {
             'fields': ('start', 'finish')
