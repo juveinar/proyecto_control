@@ -486,7 +486,7 @@ const detailColumns = [
             formContainer.innerHTML = ''; // Limpiar contenido anterior
 
             const fieldGroups = {
-                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO'],
+                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
                 'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
@@ -495,7 +495,8 @@ const detailColumns = [
             const checklistOptions = ['Pendiente', 'En Curso', 'OK', 'N/A'];
 
             const generateFieldHtml = (col, proj) => {
-                const value = proj[col] ?? '';
+                const dataKey = col === 'CAMBIO' ? 'CAMBIO PASO OPERACIÓN (OLA)' : col;
+                const value = proj[dataKey] ?? '';
                 let fieldHtml = '';
 
                 // Determinar el contenedor y la clase de columna. 'Computo' y 'OBSERVACIONES' ocupan todo el ancho.
@@ -538,7 +539,7 @@ const detailColumns = [
                     finalValue = 'En Curso';
                 }
 
-                fieldHtml = `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><input type="${inputType}" class="form-control" id="field-${col}" name="${col}" value="${finalValue}" ${isReadOnly ? 'readonly' : ''}></div>`;
+                fieldHtml = `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><input type="${inputType}" class="form-control" id="field-${col}" name="${dataKey}" value="${finalValue}" ${isReadOnly ? 'readonly' : ''}></div>`;
                 }
                 return fieldHtml;
             };
@@ -603,7 +604,7 @@ const detailColumns = [
             const detailsBody = document.getElementById('detailsModalBody');
 
             const fieldGroups = {
-                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO'],
+                'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
                 'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
@@ -625,7 +626,8 @@ const detailColumns = [
                             <div class="accordion-body"><div class="row">`;
 
                 fields.forEach(col => {
-                    if (project.hasOwnProperty(col)) {
+                    const dataKey = col === 'CAMBIO' ? 'CAMBIO PASO OPERACIÓN (OLA)' : col;
+                    if (project.hasOwnProperty(dataKey)) {
                         if (col === 'Computo') {
                             const computoValue = project[col] ?? '';
                             detailsHtml += `
@@ -634,7 +636,7 @@ const detailColumns = [
                                     <textarea class="form-control" rows="4" readonly>${computoValue}</textarea>
                                 </div>`;
                         } else {
-                            const value = project[col] ?? '';
+                            const value = project[dataKey] ?? '';
                             let displayValue = getStyledContent(value);
                             detailsHtml += `<div class="col-md-6 mb-2"><span class="detail-label">${col.replace(/_/g, ' ').toUpperCase()}:</span> ${displayValue}</div>`;
                         }
