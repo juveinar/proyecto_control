@@ -338,7 +338,7 @@ const detailColumns = [
          */
         function getStyledContent(value) {
             const s = String(value ?? '').trim().toLowerCase();
-            if (s === 'finalizado') return `<span class="badge badge-ok">${value}</span>`;
+            if (s === 'ok' || s === 'finalizado') return `<span class="badge badge-ok">${value}</span>`;
             if (s === 'suspendido') return `<span class="badge bg-warning text-dark">${value}</span>`;
             if (s.includes('pendiente')) return `<span class="badge bg-danger">${value}</span>`;
             if (s.includes('en curso')) return `<span class="badge badge-en-curso">${value}</span>`;
