@@ -266,6 +266,16 @@
             vertical-align: middle;
         }
 
+        /* Celdas interactivas en resumen de pendientes */
+        .pendiente-cell { cursor: pointer !important; display: inline-flex; align-items: center; justify-content: center; padding: 6px; border-radius: 6px; }
+        .pendiente-cell i, .pendiente-cell svg { cursor: pointer !important; }
+        .pendiente-cell:hover { background: rgba(255,255,255,0.02); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+
+        /* Estilos para el menú contextual rápido */
+        #quick-status-menu { font-size: 0.9rem; color: var(--ai-text); background: var(--ai-surface); border: 1px solid rgba(255,255,255,0.03); }
+        #quick-status-menu .quick-status-btn { border: none; background: transparent; padding: 6px; border-radius: 6px; color: var(--ai-text); }
+        #quick-status-menu .quick-status-btn:hover { background: rgba(0,170,255,0.08); transform: translateY(-2px); }
+
         @keyframes spin-gradient {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }

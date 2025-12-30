@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // INICIALIZACIÓN DE VARIABLES Y CONSTANTES GLOBALES
         // =================================================================================
         const tableBody = document.getElementById('projects-table-body');
+        const pendientesTableBody = document.getElementById('pendientes-table-body');
         const projectModalEl = document.getElementById('projectModal');
         const detailsModalEl = document.getElementById('detailsModal');
         const projectModal = new bootstrap.Modal(projectModalEl);
@@ -223,6 +224,144 @@ const detailColumns = [
                 tableBody.innerHTML = `<tr><td colspan="${visibleColumns.length + 1}" class="text-center text-danger">Error al cargar los proyectos. Revisa la consola del navegador (F12) para más detalles.</td></tr>`;
             }
         }
+
+        // ========================
+        // Menú contextual rápido para cambiar estado (click derecho)
+        // ========================
+        // Crear contenedor del menú si no existe
+        let quickStatusMenu = document.getElementById('quick-status-menu');
+        if (!quickStatusMenu) {
+            quickStatusMenu = document.createElement('div');
+            quickStatusMenu.id = 'quick-status-menu';
+            quickStatusMenu.style.position = 'absolute';
+            quickStatusMenu.style.zIndex = 9999;
+            quickStatusMenu.style.padding = '6px';
+            quickStatusMenu.style.borderRadius = '6px';
+            quickStatusMenu.style.background = 'var(--ai-surface)';
+            quickStatusMenu.style.color = 'var(--ai-text)';
+            quickStatusMenu.style.boxShadow = '0 6px 18px rgba(0,0,0,0.5)';
+            quickStatusMenu.style.display = 'none';
+            quickStatusMenu.style.minWidth = '120px';
+            quickStatusMenu.innerHTML = `
+                <div class="d-flex justify-content-between" style="gap:8px">
+                    <button class="quick-status-btn" data-status="En Curso" title="En Curso"><i class="bi bi-clock-fill" style="color:#ffde00;font-size:16px"></i></button>
+                    <button class="quick-status-btn" data-status="Pendiente" title="Pendiente"><i class="bi bi-exclamation-triangle-fill" style="color:#ff4d8a;font-size:16px"></i></button>
+                    <button class="quick-status-btn" data-status="OK" title="OK"><i class="bi bi-check-circle-fill" style="color:#00ffc4;font-size:16px"></i></button>
+                    <button class="quick-status-btn" data-status="N/A" title="N/A"><i class="bi bi-dash-circle-fill" style="color:var(--ai-secondary);font-size:16px"></i></button>
+                </div>
+            `;
+            document.body.appendChild(quickStatusMenu);
+        }
+
+        let lastContextTarget = null;
+        let suppressDocumentClick = false;
+
+        // Mostrar menú contextual al hacer click derecho o click izquierdo sobre una celda relevante
+        const resolvePendienteTarget = (elem) => {
+            if (!elem) return null;
+            const bySpan = elem.closest('.pendiente-cell');
+            if (bySpan) return bySpan;
+            const td = elem.closest('td');
+            if (td) return td.querySelector('.pendiente-cell');
+            return null;
+        };
+
+        const showQuickMenu = (e, targetElem) => {
+            e.preventDefault();
+            // Evitar que el click burbujee hasta el document y cierre el menú inmediatamente
+            if (e.stopPropagation) e.stopPropagation();
+            const target = resolvePendienteTarget(targetElem || e.target);
+            if (!target) return;
+            lastContextTarget = target;
+            quickStatusMenu.style.left = `${e.pageX}px`;
+            quickStatusMenu.style.top = `${e.pageY}px`;
+            quickStatusMenu.style.display = 'block';
+            // Evitar que el siguiente click global cierre el menú inmediatamente
+            suppressDocumentClick = true;
+            setTimeout(() => { suppressDocumentClick = false; }, 350);
+            // Ajustar si sale de la pantalla
+            const mr = quickStatusMenu.getBoundingClientRect();
+            if (mr.right > window.innerWidth) {
+                quickStatusMenu.style.left = `${Math.max(8, e.pageX - (mr.width + 8))}px`;
+            }
+            if (mr.bottom > window.innerHeight) {
+                quickStatusMenu.style.top = `${Math.max(8, e.pageY - (mr.height + 8))}px`;
+            }
+        };
+
+        pendientesTableBody.addEventListener('contextmenu', function (e) {
+            const resolved = resolvePendienteTarget(e.target);
+            if (!resolved) return; // no es una celda objetivo
+            showQuickMenu(e, e.target);
+        });
+
+        // Usar PointerEvent para manejar clicks (evita APIs obsoletas como mozInputSource)
+        pendientesTableBody.addEventListener('pointerdown', function (e) {
+            try {
+                // e.button === 0 -> izquierdo, 2 -> derecho
+                const resolved = resolvePendienteTarget(e.target);
+                if (!resolved) return;
+                // Sólo reaccionar a eventos de puntero primario (evita touches secundarios)
+                if (e.isPrimary === false) return;
+                // Para botones físicos: mostrar el menú en izquierdo (0)
+                if (e.button === 0) {
+                    // Crear un synthetic event-like object to pass position
+                    showQuickMenu(e, e.target);
+                }
+                // Para el botón derecho, el evento 'contextmenu' se encargará
+            } catch (err) {
+                console.warn('pointerdown handler error', err);
+            }
+        });
+
+        // Manejar la selección de un nuevo estado desde el menú
+        quickStatusMenu.addEventListener('click', async function (e) {
+            const btn = e.target.closest('.quick-status-btn');
+            if (!btn || !lastContextTarget) return;
+            const newStatus = btn.dataset.status;
+            const projectId = lastContextTarget.dataset.projectId;
+            const fieldName = lastContextTarget.dataset.field;
+            if (!projectId || !fieldName) {
+                alert('No se pudo identificar el proyecto o el campo.');
+                quickStatusMenu.style.display = 'none';
+                return;
+            }
+            // Petición AJAX para actualizar el estado del campo
+            try {
+                const response = await fetch(`/api/projects/${projectId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({ field_name: fieldName, new_status: newStatus })
+                });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.error || 'Error al actualizar estado');
+                }
+                // Actualizar vista de pendientes y tabla
+                await fetchProjects();
+                displayAllPendientes();
+            } catch (err) {
+                console.error('Error actualizando estado rápido:', err);
+                alert('Error al actualizar estado: ' + err.message);
+            } finally {
+                quickStatusMenu.style.display = 'none';
+                lastContextTarget = null;
+            }
+        });
+
+        // Ocultar menú al hacer clic fuera o presionar ESC
+        document.addEventListener('click', function (e) {
+            if (suppressDocumentClick) return; // ignorar el primer click después de abrir el menú
+            if (!quickStatusMenu.contains(e.target)) {
+                quickStatusMenu.style.display = 'none';
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') quickStatusMenu.style.display = 'none';
+        });
 
         /**
          * Rellena el selector de años `<select>` con los años únicos extraídos de los
@@ -937,12 +1076,14 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                         let cellContent = '';
                         // Comprobar si alguna de las columnas originales para este título tiene un estado relevante
                         for (const field of originalFields) {
-                            const fieldValue = String(project[field] ?? '').trim().toLowerCase();
+                            const rawValue = String(project[field] ?? '').trim();
+                            const fieldValue = rawValue.toLowerCase();
                             if (fieldValue === 'pendiente') {
-                                cellContent = `<td class="text-center"><i class="bi bi-exclamation-triangle-fill icon-pendiente"></i></td>`;
+                                cellContent = `<td class="text-center"><span class="pendiente-cell" data-field="${field}" data-value="Pendiente" data-project-id="${project['Id Project']}" title="${field}"><i class="bi bi-exclamation-triangle-fill icon-pendiente"></i></span></td>`;
                                 break; // Encontramos un pendiente, no necesitamos seguir buscando
                             } else if (fieldValue === 'en curso') {
-                                cellContent = `<td class="text-center"><i class="bi bi-clock-fill icon-en-curso"></i></td>`;
+                                // Guardamos el primer campo que esté en curso (si no hay pendientes)
+                                cellContent = `<td class="text-center"><span class="pendiente-cell" data-field="${field}" data-value="En Curso" data-project-id="${project['Id Project']}" title="${field}"><i class="bi bi-clock-fill icon-en-curso"></i></span></td>`;
                                 // No rompemos el bucle, por si hay un "pendiente" que tiene más prioridad
                             }
                         }
