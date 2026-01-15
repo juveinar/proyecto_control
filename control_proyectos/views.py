@@ -409,11 +409,40 @@ def api_projects_update(request, project_id):
         if nueva_fase and fecha_fase_str:
             try:
                 fecha_fase = datetime.strptime(fecha_fase_str, '%Y-%m-%d').date()
-                ProyectoFase.objects.create(
+
+                # Buscar si ya existe un registro para esta fase (tomar el más reciente si hay varios)
+                existente = ProyectoFase.objects.filter(
                     proyecto=proyecto,
-                    fase=nueva_fase,
-                    fecha=fecha_fase
-                )
+                    fase=nueva_fase
+                ).order_by('-fecha', '-created_at').first()
+
+                if existente:
+                    # Si la fecha es distinta, actualizar la fecha de ese registro existente
+                    if existente.fecha != fecha_fase:
+                        try:
+                            existente.fecha = fecha_fase
+                            existente.save()
+                        except Exception:
+                            # Si hay conflicto de unicidad u otro error, crear una nueva fila como fallback
+                            try:
+                                ProyectoFase.objects.create(
+                                    proyecto=proyecto,
+                                    fase=nueva_fase,
+                                    fecha=fecha_fase
+                                )
+                            except Exception as e:
+                                print(f"Error actualizando/creando fase existente: {e}")
+                    # si la fecha es la misma, no hacer nada (evitar duplicados)
+                else:
+                    # No existía la fase: crear nueva fila en el historial
+                    try:
+                        ProyectoFase.objects.create(
+                            proyecto=proyecto,
+                            fase=nueva_fase,
+                            fecha=fecha_fase
+                        )
+                    except Exception as e:
+                        print(f"Error creando nueva fase en historial: {e}")
             except Exception as e:
                 print(f"Error actualizando fase: {e}")
 
