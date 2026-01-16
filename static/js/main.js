@@ -153,7 +153,7 @@ const detailColumns = [
     'RT',
     'SERVICIO',
     'OBSERVACIONES',
-    'CAMBIO PASO OPERACIÓN (OLA)',
+    'CAMBIO',
     'Computo'
 ];
         const addProjectFields = ['Id Project', 'Project', 'Estado', 'Start', 'Finish', 'RF', 'CONTACTO', 'OBSERVACIONES'];
@@ -189,7 +189,7 @@ const detailColumns = [
             'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)',
             'RT',
             'SERVICIO',
-            'CAMBIO PASO OPERACIÓN (OLA)',
+            'CAMBIO',
             'Computo'
         ];
 
@@ -1042,7 +1042,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                     if (field.startsWith('UCMDB Triara')) {
                         return 'UCMDB';
                     }
-                    if (field === 'CAMBIO PASO OPERACIÓN (OLA)') {
+                    if (field === 'CAMBIO' || field === 'CAMBIO PASO OPERACIÓN (OLA)') {
                         return 'Cambio';
                     }
                     return field;
