@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('searchInput');
         const notFinishedFilterSwitch = document.getElementById('notFinishedFilterSwitch');
         let projectsChart = null;
-        let currentStatusFilter = 'not-finished'; // 'not-finished', 'finished', o null (todos)
+        let currentStatusFilter = 'not-finished'; // 'not-finished', 'finished', 'closed', o null (todos)
 
         // Variables de estado para gestionar los datos y la paginación
         let allProjects = [];
@@ -509,23 +509,30 @@ const detailColumns = [
                 projectsToDisplay = projectsToDisplay.filter(p => p.Start && (new Date(p.Start).getMonth() + 1) === selectedMonth);
             }
 
-            // Actualiza los contadores de "Finalizados" y "No Finalizados"
+            // Actualiza los contadores de "Finalizados", "No Finalizados" y "Cerrados"
             const finishedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'finalizado').length;
-            const notFinishedCount = projectsToDisplay.length - finishedCount;
+            const notFinishedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'en curso').length;
+            const closedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'cerrado').length;
             document.getElementById('finished-count').textContent = finishedCount;
             document.getElementById('not-finished-count').textContent = notFinishedCount;
+            document.getElementById('closed-count').textContent = closedCount;
 
             // Sincronizar el estado del checkbox con el filtro actual
             notFinishedFilterSwitch.checked = currentStatusFilter === 'not-finished';
 
-            // Aplica filtro de "No Finalizados"
+            // Aplica filtro de "No Finalizados" (solo estado "En Curso")
             if (currentStatusFilter === 'not-finished') {
-                projectsToDisplay = projectsToDisplay.filter(p => !p.Estado || String(p.Estado).trim().toLowerCase() !== 'finalizado');
+                projectsToDisplay = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'en curso');
             }
 
             // Aplica filtro de "Finalizados"
             if (currentStatusFilter === 'finished') {
                 projectsToDisplay = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'finalizado');
+            }
+
+            // Aplica filtro de "Cerrados"
+            if (currentStatusFilter === 'closed') {
+                projectsToDisplay = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'cerrado');
             }
 
             // Aplica filtro de búsqueda
@@ -1143,14 +1150,18 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         // Listeners para los botones de filtro de estado (tarjetas)
         const finishedCard = document.querySelector('.stat-card.finished');
         const notFinishedCard = document.querySelector('.stat-card.not-finished');
+        const closedCard = document.querySelector('.stat-card.closed');
 
         function updateActiveCard() {
             finishedCard.classList.remove('active');
             notFinishedCard.classList.remove('active');
+            closedCard.classList.remove('active');
             if (currentStatusFilter === 'finished') {
                 finishedCard.classList.add('active');
             } else if (currentStatusFilter === 'not-finished') {
                 notFinishedCard.classList.add('active');
+            } else if (currentStatusFilter === 'closed') {
+                closedCard.classList.add('active');
             }
         }
 
@@ -1164,6 +1175,13 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         notFinishedCard.addEventListener('click', () => {
             currentPage = 1;
             currentStatusFilter = currentStatusFilter === 'not-finished' ? null : 'not-finished';
+            updateActiveCard();
+            renderTable();
+        });
+
+        closedCard.addEventListener('click', () => {
+            currentPage = 1;
+            currentStatusFilter = currentStatusFilter === 'closed' ? null : 'closed';
             updateActiveCard();
             renderTable();
         });

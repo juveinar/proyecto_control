@@ -71,11 +71,13 @@
         .stat-card:hover { border-color: var(--ai-primary); }
         .stat-card.active.finished { border-color: #00ffc4; box-shadow: 0 0 15px rgba(0, 255, 196, 0.3); }
         .stat-card.active.not-finished { border-color: #ffde00; box-shadow: 0 0 15px rgba(255, 222, 0, 0.3); }
+        .stat-card.active.closed { border-color: #4a90e2; box-shadow: 0 0 15px rgba(74, 144, 226, 0.3); }
         .stat-card svg { width: 1.75rem; height: 1.75rem; opacity: 0.9; }
         .stat-text .stat-label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.1rem; }
         .stat-text .stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
         .stat-card.finished svg, .stat-card.finished .stat-text { color: #00ffc4; text-shadow: 0 0 8px rgba(0, 255, 196, 0.3); }
         .stat-card.not-finished svg, .stat-card.not-finished .stat-text { color: #ffde00; text-shadow: 0 0 8px rgba(255, 222, 0, 0.3); }
+        .stat-card.closed svg, .stat-card.closed .stat-text { color: #4a90e2; text-shadow: 0 0 8px rgba(74, 144, 226, 0.3); }
         #chart-container {
             height: 220px; /* Altura más reducida */
             width: 100%;
