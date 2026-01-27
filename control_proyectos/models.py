@@ -116,6 +116,7 @@ class ProyectoFase(models.Model):
         ('DESPLIEGUE', 'Despliegue'),
         ('ENTREGADO', 'Entregado a Usuario'),
         ('OPERACION', 'Paso a Operación'),
+        ('CIERRE', 'Cierre'),
     ]
 
     proyecto = models.ForeignKey(

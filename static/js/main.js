@@ -724,6 +724,19 @@ const detailColumns = [
             projectModal._element.addEventListener('shown.bs.modal', () => {
                 formContainer.querySelectorAll('textarea').forEach(autoResizeTextarea);
             }, { once: true });
+
+            // Listener para auto-actualizar fase cuando Estado cambia a "Cerrado"
+            const estadoField = document.getElementById('field-Estado');
+            if (estadoField) {
+                estadoField.addEventListener('change', function() {
+                    if (this.value.toLowerCase() === 'cerrado') {
+                        // Auto-llenar fase con "CIERRE" y fecha actual
+                        document.getElementById('faseSelect').value = 'CIERRE';
+                        const today = new Date().toISOString().split('T')[0];
+                        document.getElementById('faseDate').value = today;
+                    }
+                });
+            }
         }
 
         /**
