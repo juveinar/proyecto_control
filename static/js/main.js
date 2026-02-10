@@ -390,6 +390,12 @@ const detailColumns = [
          * @param {string|number} year - El año para el cual se deben obtener las estadísticas.
          */
         async function renderChart(year) {
+            // Actualizar el título del gráfico según el filtro seleccionado
+            const chartTitle = document.getElementById('chart-title');
+            if (chartTitle) {
+                chartTitle.textContent = `Proyectos Iniciados por Mes ${year ? '(' + year + ')' : '(Todos)'}`;
+            }
+
             try {
                 const url = year ? `/api/projects/stats?year=${year}` : '/api/projects/stats';
                 const response = await fetch(url);
