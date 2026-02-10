@@ -368,16 +368,20 @@ const detailColumns = [
          * datos de los proyectos.
          */
         function populateYearSelector() {
-            const years = [...new Set(allProjects.map(p => p.Start ? new Date(p.Start).getFullYear() : null))]
-                .filter(y => y).sort((a, b) => b - a);
+            // Guardar el valor seleccionado actualmente para restaurarlo si es posible
+            const currentSelection = yearSelector.value;
+
+            // Extraer años evitando problemas de zona horaria (usando substring en lugar de Date)
+            const years = [...new Set(allProjects.map(p => {
+                return p.Start ? parseInt(String(p.Start).substring(0, 4), 10) : null;
+            }))].filter(y => y).sort((a, b) => b - a);
+
             yearSelector.innerHTML = '<option value="">Todos</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
 
-            // No seleccionar automáticamente el año actual, dejar "Todos" por defecto
-            // Esto permite ver todos los proyectos sin filtrar por año
-            // const currentYear = new Date().getFullYear();
-            // if (years.includes(currentYear)) {
-            //     yearSelector.value = currentYear;
-            // }
+            // Restaurar la selección si el año aún existe en la lista
+            if (currentSelection && years.includes(parseInt(currentSelection))) {
+                yearSelector.value = currentSelection;
+            }
         }
 
         /**
