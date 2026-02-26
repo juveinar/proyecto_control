@@ -46,6 +46,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.target.closest('button, a, input, select, textarea') || e.target.tagName === 'H5') {
                 return;
             }
+            // Evitar arrastre si el modal está maximizado (clase de Bootstrap)
+            if (modalDialog.classList.contains('modal-fullscreen')) {
+                return;
+            }
             e.preventDefault();
 
             isDragging = true;
@@ -103,9 +107,19 @@ document.addEventListener('DOMContentLoaded', function () {
         const detailsModalEl = document.getElementById('detailsModal');
         const projectModal = new bootstrap.Modal(projectModalEl);
         const detailsModal = new bootstrap.Modal(detailsModalEl);
+        const observacionesModalEl = document.getElementById('observacionesModal');
+        const observacionesModal = new bootstrap.Modal(observacionesModalEl);
+
+        // Elementos de la barra de búsqueda del bloc de notas
+        const notepadSearchBar = document.getElementById('notepad-search-bar');
+        const notepadSearchInput = document.getElementById('notepad-search-input');
+        const notepadReplaceInput = document.getElementById('notepad-replace-input');
+        const notepadMatchCounter = document.getElementById('notepad-match-counter');
+        const notepadTextarea = document.getElementById('observacionesContent');
 
         makeModalDraggable(projectModalEl);
         makeModalDraggable(detailsModalEl);
+        makeModalDraggable(observacionesModalEl);
 
         // Elementos de la interfaz de usuario para filtros y búsqueda
         const yearSelector = document.getElementById('year-selector');
@@ -119,6 +133,12 @@ document.addEventListener('DOMContentLoaded', function () {
         let allColumns = [];
         let currentVisibleProjectIds = [];
         let currentDetailProjectId = null;
+        let currentObservacionesId = null;
+        let originalObservacionesContent = '';
+        // Estado de la búsqueda en el bloc de notas
+        let searchMatches = [];
+        let currentMatchIndex = -1;
+        let autoSaveInterval = null;
         let selectedMonth = null;       // Almacena el mes seleccionado en el gráfico para filtrar la tabla.
         let selectedBarIndex = -1;      // Índice de la barra seleccionada en el gráfico.
         let originalBarColors = [];     // Almacena los colores originales de las barras del gráfico.
@@ -804,6 +824,14 @@ const detailColumns = [
                                     <label class="form-label detail-label">${col.toUpperCase()}:</label>
                                     <textarea class="form-control" rows="4" readonly>${computoValue}</textarea>
                                 </div>`;
+                        } else if (col === 'OBSERVACIONES') {
+                            detailsHtml += `
+                                <div class="col-md-6 mb-2">
+                                    <span class="detail-label">${col.toUpperCase()}:</span>
+                                    <button class="btn-ai-note" onclick="openObservacionesModal(${project['Id Project']})" title="Ver Observaciones">
+                                        <i class="bi bi-journal-text"></i>
+                                    </button>
+                                </div>`;
                         } else {
                             const value = project[dataKey] ?? '';
                             let displayValue = getStyledContent(value);
@@ -869,6 +897,38 @@ const detailColumns = [
 
         // Expone funciones en el objeto `window` para que puedan ser llamadas desde el HTML (onclick).
 
+        // Abre el modal de observaciones (bloc de notas)
+        window.openObservacionesModal = (projectId) => {
+            const project = allProjects.find(p => p['Id Project'] === projectId);
+            if (project) {
+                currentObservacionesId = projectId;
+                originalObservacionesContent = project['OBSERVACIONES'] || '';
+                const textarea = document.getElementById('observacionesContent');
+                const modalTitle = document.getElementById('observacionesModalLabel');
+                if (modalTitle) {
+                    // Actualiza el título del modal para incluir el nombre del proyecto
+                    modalTitle.innerHTML = `<i class="bi bi-journal-text me-2"></i>Observaciones - ${project.Project || 'Sin Título'}`;
+                }
+                textarea.value = originalObservacionesContent;
+                observacionesModal.show();
+
+                // Resetear la búsqueda al abrir el modal
+                notepadSearchBar.classList.remove('visible');
+                notepadSearchInput.value = '';
+                performSearch();
+
+                // Iniciar autoguardado cada 30 segundos
+                if (autoSaveInterval) clearInterval(autoSaveInterval);
+                autoSaveInterval = setInterval(() => {
+                    const currentContent = textarea.value;
+                    // Solo guardar si hay cambios respecto a lo último guardado
+                    if (currentContent !== originalObservacionesContent) {
+                        saveObservaciones(true); // true = modo silencioso
+                    }
+                }, 30000);
+            }
+        };
+
         // Abre el modal de detalles para un proyecto específico.
         window.openDetailsModal = (projectId) => {
             showProjectDetails(projectId);
@@ -908,6 +968,204 @@ const detailColumns = [
             if (projectId) {
                 projectModal.hide();
                 setTimeout(() => { openDetailsModal(projectId); }, 150);
+            }
+        });
+
+        // Lógica para guardar cambios en Observaciones
+        const saveObservaciones = async (silent = false) => {
+            const textarea = document.getElementById('observacionesContent');
+            const newContent = textarea.value;
+
+            try {
+                const response = await fetch(`/api/projects/${currentObservacionesId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({ "OBSERVACIONES": newContent })
+                });
+
+                if (!response.ok) throw new Error('Error al guardar observaciones');
+
+                // Actualizar datos locales
+                const project = allProjects.find(p => p['Id Project'] === currentObservacionesId);
+                if (project) project['OBSERVACIONES'] = newContent;
+
+                // Actualizar referencia original para evitar alerta al cerrar
+                originalObservacionesContent = newContent;
+
+                if (!silent) {
+                    // La alerta de confirmación fue eliminada para una experiencia más fluida.
+                } else {
+                    console.log('Autoguardado de observaciones realizado.');
+                }
+                return true;
+            } catch (error) {
+                console.error(error);
+                if (!silent) alert('Error al guardar: ' + error.message);
+                return false;
+            }
+        };
+
+        document.getElementById('saveObservacionesBtn').addEventListener('click', () => saveObservaciones(false));
+
+        // --- Lógica de Búsqueda y Reemplazo en Bloc de Notas ---
+
+        let searchDebounceTimeout;
+
+        const performSearch = () => {
+            const searchTerm = notepadSearchInput.value;
+            const content = notepadTextarea.value;
+            searchMatches = [];
+            currentMatchIndex = -1;
+
+            if (!searchTerm) {
+                notepadMatchCounter.textContent = '0/0';
+                return;
+            }
+
+            const regex = new RegExp(searchTerm, 'gi'); // g for global, i for case-insensitive
+            let match;
+            while ((match = regex.exec(content)) !== null) {
+                searchMatches.push(match.index);
+            }
+
+            if (searchMatches.length > 0) {
+                currentMatchIndex = 0;
+                highlightMatch(currentMatchIndex, false); // Pasamos 'false' para no robar el foco
+            } else {
+                notepadMatchCounter.textContent = '0/0';
+            }
+        };
+
+        const highlightMatch = (index, setFocus = true) => {
+            if (index < 0 || index >= searchMatches.length) return;
+
+            const start = searchMatches[index];
+            const end = start + notepadSearchInput.value.length;
+
+            // Realiza la selección del texto en el área de notas
+            notepadTextarea.setSelectionRange(start, end);
+
+            if (setFocus) {
+                // Si se solicita, mueve el foco al área de texto (para botones Siguiente/Anterior)
+                notepadTextarea.focus();
+            } else {
+                // Si no, asegura que el foco permanezca en el campo de búsqueda (mientras se escribe)
+                notepadSearchInput.focus();
+                // Coloca el cursor al final del texto en el input para poder seguir escribiendo
+                const len = notepadSearchInput.value.length;
+                notepadSearchInput.setSelectionRange(len, len);
+            }
+
+            notepadMatchCounter.textContent = `${index + 1}/${searchMatches.length}`;
+        };
+
+        document.getElementById('toggleSearchBtn').addEventListener('click', () => {
+            notepadSearchBar.classList.toggle('visible');
+            if (notepadSearchBar.classList.contains('visible')) {
+                notepadSearchInput.focus();
+                performSearch();
+            }
+        });
+
+        document.getElementById('notepad-close-search-btn').addEventListener('click', () => {
+            notepadSearchBar.classList.remove('visible');
+            clearTimeout(searchDebounceTimeout);
+        });
+
+        // Se usa un debounce para evitar que la búsqueda se ejecute en cada pulsación,
+        // lo que permite al usuario terminar de escribir antes de que el foco cambie.
+        notepadSearchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounceTimeout);
+            searchDebounceTimeout = setTimeout(performSearch, 350);
+        });
+        notepadSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('notepad-next-btn').click();
+            }
+        });
+
+        document.getElementById('notepad-next-btn').addEventListener('click', () => {
+            if (searchMatches.length === 0) return;
+            currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+            highlightMatch(currentMatchIndex);
+        });
+
+        document.getElementById('notepad-prev-btn').addEventListener('click', () => {
+            if (searchMatches.length === 0) return;
+            currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+            highlightMatch(currentMatchIndex);
+        });
+
+        document.getElementById('notepad-replace-btn').addEventListener('click', () => {
+            const start = notepadTextarea.selectionStart;
+            const end = notepadTextarea.selectionEnd;
+            if (end - start === 0 || searchMatches.length === 0) return;
+            notepadTextarea.setRangeText(notepadReplaceInput.value, start, end, 'select');
+            performSearch();
+        });
+
+        document.getElementById('notepad-replace-all-btn').addEventListener('click', () => {
+            const searchTerm = notepadSearchInput.value;
+            if (!searchTerm) return;
+            const replaceTerm = notepadReplaceInput.value;
+            const regex = new RegExp(searchTerm, 'gi');
+            notepadTextarea.value = notepadTextarea.value.replace(regex, replaceTerm);
+            performSearch();
+        });
+
+        // Botón para maximizar/restaurar el bloc de notas
+        const maximizeBtn = document.getElementById('maximizeObservacionesBtn');
+        if (maximizeBtn) {
+            maximizeBtn.addEventListener('click', () => {
+                const modalDialog = observacionesModalEl.querySelector('.modal-dialog');
+                const modalContent = observacionesModalEl.querySelector('.modal-content');
+                const icon = maximizeBtn.querySelector('i');
+
+                modalDialog.classList.toggle('modal-fullscreen');
+                modalContent.classList.toggle('notepad-fullscreen');
+
+                if (modalDialog.classList.contains('modal-fullscreen')) {
+                    // Limpiar estilos de arrastre para que ocupe toda la pantalla correctamente
+                    modalDialog.style.top = '';
+                    modalDialog.style.left = '';
+                    modalDialog.style.position = '';
+                    modalDialog.style.margin = '';
+
+                    icon.classList.replace('bi-arrows-fullscreen', 'bi-fullscreen-exit');
+                    maximizeBtn.title = "Restaurar";
+                } else {
+                    icon.classList.replace('bi-fullscreen-exit', 'bi-arrows-fullscreen');
+                    maximizeBtn.title = "Maximizar";
+                }
+            });
+        }
+
+        // Detectar cambios al cerrar el modal de Observaciones
+        observacionesModalEl.addEventListener('hide.bs.modal', function (e) {
+            if (autoSaveInterval) clearInterval(autoSaveInterval); // Detener autoguardado
+            clearTimeout(searchDebounceTimeout); // Limpiar el temporizador de búsqueda
+
+            // Restablecer el título del modal al cerrar para que no se quede el nombre del proyecto anterior
+            const modalTitle = document.getElementById('observacionesModalLabel');
+            if (modalTitle) {
+                modalTitle.innerHTML = `<i class="bi bi-journal-text me-2"></i>Observaciones`;
+            }
+
+            const textarea = document.getElementById('observacionesContent');
+            if (textarea.value !== originalObservacionesContent) {
+                if (confirm("Se han detectado cambios sin guardar en las observaciones.\n\n¿Desea guardar los cambios antes de salir?")) {
+                    e.preventDefault(); // Detener el cierre temporalmente
+                    saveObservaciones().then(success => {
+                        if (success) {
+                            observacionesModal.hide(); // Cerrar manualmente si se guardó con éxito
+                        }
+                    });
+                }
+                // Si el usuario cancela (dice "No"), el modal se cierra y los cambios se descartan (comportamiento por defecto)
             }
         });
 
