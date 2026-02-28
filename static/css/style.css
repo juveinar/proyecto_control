@@ -854,3 +854,122 @@
     color: #fff;
     transform: translateY(-1px);
 }
+
+/* Botón para mostrar/ocultar el widget de contactos */
+#contacts-toggle-btn {
+    position: fixed;
+    bottom: 82px; /* Arriba del botón de eventos */
+    right: 20px; /* Posicionado a la derecha */
+    width: 52px;
+    height: 52px;
+    background-color: var(--ai-surface);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 1040;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 170, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#contacts-toggle-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: conic-gradient(
+        from 180deg at 50% 50%,
+        #00ffc4, #c379f9, var(--ai-primary), #00ffc4
+    );
+    border-radius: 50%;
+    animation: spin-gradient 5s linear infinite;
+    z-index: 0;
+}
+
+#contacts-toggle-btn::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px; right: 2px; bottom: 2px;
+    background-color: var(--ai-surface);
+    border-radius: 50%;
+    z-index: 1;
+}
+
+#contacts-toggle-btn svg {
+    width: 22px;
+    height: 22px;
+    color: var(--ai-primary);
+    transition: transform 0.3s ease;
+    z-index: 2;
+}
+
+#contacts-toggle-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(0, 170, 255, 0.4);
+}
+
+/* Widget de Contactos */
+#contacts-widget {
+    position: fixed;
+    bottom: 82px; /* Arriba del widget de eventos */
+    right: 20px; /* Posicionado a la derecha */
+    width: 750px; /* Ancho ampliado para evitar saltos de línea */
+    border-radius: 12px;
+    background-color: #222938; /* Fondo sólido diferenciado */
+    border: 1px solid #30384a; /* Borde sólido */
+    box-shadow: 0 12px 28px rgba(0,0,0,0.55);
+    z-index: 1050;
+    transition: transform 0.4s cubic-bezier(.2,.9,.22,1), opacity 0.4s ease;
+    overflow: hidden;
+    /* backdrop-filter: blur(6px); -- Eliminado */
+    transform: translateY(50px) scale(0.9);
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+}
+
+#contacts-widget.visible {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.contacts-widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.contacts-widget-header h5 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.contacts-widget-body {
+    padding: 0; /* Eliminamos el padding para que la tabla ocupe todo el espacio */
+    max-height: 400px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+/* Estilos para los botones de acción dentro de la tabla de contactos */
+.contacts-widget-body .table .btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    background-color: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.contacts-widget-body .table .btn:hover {
+    background-color: rgba(0, 170, 255, 0.2);
+    border-color: var(--ai-primary);
+}
+
+/* Evita el salto de línea en las celdas de la tabla de contactos */
+.contacts-widget-body .table td {
+    white-space: nowrap;
+}

@@ -703,6 +703,15 @@ const detailColumns = [
                     fieldHtml += `</select></div>`;
                 } else if (col === 'Computo' || col === 'OBSERVACIONES') {
                     fieldHtml = `<div class="col-12 mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><textarea class="form-control" id="field-${col}" name="${col}" rows="4">${value}</textarea></div>`;
+                } else if (col === 'CONTACTO') {
+                    // Special handling for CONTACTO field - make it readonly and show contact info
+                    fieldHtml = `<div class="col-md-6 mb-3">
+                        <label for="field-${col}" class="form-label">CONTACTO</label>
+                        <input type="text" class="form-control" id="field-${col}" name="${dataKey}" value="${value}" readonly>
+                        <small class="text-muted">Este campo se muestra automáticamente según el contacto asignado en la libreta de contactos</small>
+                    </div>`;
+                    // Fetch contact info for this project
+                    fetchContactInfo(proj['Id Project']);
                 } else {
                     const isDate = dateColumns.includes(col);
                     const isReadOnly = (isEdit && col === 'Id Project') || (!isEdit && col === 'Estado');
@@ -784,9 +793,15 @@ const detailColumns = [
          * @param {number} projectId - El ID del proyecto a mostrar.
          */
         function showProjectDetails(projectId) {
+            console.log('=== SHOW PROJECT DETAILS ===');
+            console.log('Project ID:', projectId);
             currentDetailProjectId = projectId;
             const project = allProjects.find(p => p['Id Project'] === projectId);
-            if (!project) return;
+            if (!project) {
+                console.error('Project not found for ID:', projectId);
+                return;
+            }
+            console.log('Project found:', project);
 
             document.getElementById('detailsModalLabel').textContent = `ID ${project['Id Project']} - ${project.Project}`;
             document.getElementById('editFromDetailsBtn').dataset.projectId = projectId;
@@ -797,6 +812,8 @@ const detailColumns = [
                 'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
+
+            console.log('Field groups:', fieldGroups);
 
             let detailsHtml = '<div class="accordion" id="detailsAccordion">';
 
@@ -816,7 +833,25 @@ const detailColumns = [
 
                 fields.forEach(col => {
                     const dataKey = col === 'CAMBIO' ? 'CAMBIO PASO OPERACIÓN (OLA)' : col;
-                    if (project.hasOwnProperty(dataKey)) {
+
+                    // CONTACTO field always renders regardless of project.hasOwnProperty
+                    if (col === 'CONTACTO') {
+                        // Special handling for CONTACTO field - fetch contact info
+                        console.log('Rendering CONTACTO field for project:', project['Id Project']);
+                        detailsHtml += `
+                            <div class="col-md-6 mb-2">
+                                <span class="detail-label">CONTACTO:</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span id="contact-info-${project['Id Project']}" class="contact-loading">Cargando...</span>
+                                    <div id="contact-buttons-${project['Id Project']}" class="d-flex gap-1" style="display: none;">
+                                        <!-- Teams and Email buttons will be added here -->
+                                    </div>
+                                </div>
+                            </div>`;
+                        // Fetch contact info asynchronously
+                        console.log('Calling fetchContactInfo for project:', project['Id Project']);
+                        fetchContactInfo(project['Id Project']);
+                    } else if (project.hasOwnProperty(dataKey)) {
                         if (col === 'Computo') {
                             const computoValue = project[col] ?? '';
                             detailsHtml += `
@@ -847,6 +882,120 @@ const detailColumns = [
             detailsBody.innerHTML = detailsHtml;
 
             updateNavButtons();
+        }
+
+        /**
+         * Fetch contact information for a specific project
+         * @param {number} projectId - The ID of the project
+         */
+        async function fetchContactInfo(projectId) {
+            console.log('=== FETCH CONTACT INFO ===');
+            console.log('Project ID:', projectId);
+            try {
+                // Get all contacts and find the one associated with this project
+                if (!window.allContactsForProjects) {
+                    console.log('Contacts not cached, fetching from API...');
+                    // Fetch contacts if not already loaded
+                    const response = await fetch('/api/contacts');
+                    console.log('Contacts API response status:', response.status);
+                    if (response.ok) {
+                        window.allContactsForProjects = await response.json();
+                        console.log('Contacts loaded:', window.allContactsForProjects.length, 'items');
+                        console.log('First few contacts:', window.allContactsForProjects.slice(0, 3));
+                    } else {
+                        throw new Error('Failed to fetch contacts');
+                    }
+                } else {
+                    console.log('Using cached contacts:', window.allContactsForProjects.length, 'items');
+                }
+
+                // Find all contacts associated with this project
+                console.log('Looking for contacts associated with project ID:', projectId);
+                const contacts = window.allContactsForProjects.filter(c => {
+                    console.log('Checking contact:', c.nombre, 'proyecto_id:', c.proyecto_id, 'proyecto:', c.proyecto);
+                    // Check if contact is associated with this project by project_id or project.id_project
+                    return c.proyecto_id === projectId ||
+                           (c.proyecto && c.proyecto.id_project === projectId) ||
+                           (c.proyecto && c.proyecto['Id Project'] === projectId);
+                });
+
+                console.log('Found contacts:', contacts);
+
+                // Wait for the DOM element to be available with retry logic
+                let contactElement = null;
+                let retries = 0;
+                const maxRetries = 10;
+
+                while (!contactElement && retries < maxRetries) {
+                    contactElement = document.getElementById(`contact-info-${projectId}`);
+                    console.log(`Retry ${retries + 1}: Contact element found:`, !!contactElement);
+
+                    if (!contactElement) {
+                        retries++;
+                        await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+                    }
+                }
+
+                console.log('Final contact element found:', !!contactElement);
+
+                if (contactElement) {
+                    if (contacts && contacts.length > 0) {
+                        // Display multiple contacts with inline buttons
+                        let contactsHtml = '';
+
+                        contacts.forEach((contact, index) => {
+                            const contactInfo = `${contact.nombre || ''}${contact.correo ? ' - ' + contact.correo : ''}`;
+
+                            // Add contact as a flex container with inline buttons
+                            if (index > 0) contactsHtml += '<br>';
+                            contactsHtml += `
+                                <div class="contact-item d-flex align-items-center justify-content-between">
+                                    <span class="contact-name">${contactInfo || 'Sin contacto'}</span>
+                                    <div class="contact-buttons">
+                                        ${contact.correo ? `
+                                            <a href="msteams:/l/chat/0/0?users=${contact.correo}" class="btn btn-sm btn-outline-primary" title="Chatear en Teams con ${contact.nombre}">
+                                                <i class="bi bi-microsoft-teams"></i>
+                                            </a>
+                                            <a href="mailto:${contact.correo}" class="btn btn-sm btn-outline-primary" title="Enviar Correo a ${contact.nombre}">
+                                                <i class="bi bi-envelope-fill"></i>
+                                            </a>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+
+                        console.log('Setting contacts list with inline buttons:', contactsHtml);
+                        contactElement.innerHTML = contactsHtml;
+                        contactElement.classList.remove('contact-loading');
+
+                        // Hide separate buttons container since buttons are now inline
+                        const buttonsContainer = document.getElementById(`contact-buttons-${projectId}`);
+                        if (buttonsContainer) {
+                            buttonsContainer.style.display = 'none';
+                        }
+                    } else {
+                        console.log('No contacts found for project:', projectId);
+                        contactElement.textContent = 'Sin contacto asignado';
+                        contactElement.classList.remove('contact-loading');
+
+                        // Hide buttons if no contacts
+                        const buttonsContainer = document.getElementById(`contact-buttons-${projectId}`);
+                        if (buttonsContainer) {
+                            buttonsContainer.style.display = 'none';
+                        }
+                    }
+                } else {
+                    console.error('Contact element not found for project:', projectId, 'after', maxRetries, 'retries');
+                }
+            } catch (error) {
+                console.error('Error fetching contact info:', error);
+                const contactElement = document.getElementById(`contact-info-${projectId}`);
+                if (contactElement) {
+                    contactElement.textContent = 'Error al cargar contacto';
+                    contactElement.classList.remove('contact-loading');
+                }
+            }
         }
 
         /**
@@ -1857,6 +2006,788 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                     }
                     console.error('Error generando informe IA:', error);
                 }
+            });
+        }
+
+        // =================================================================================
+        // LÓGICA DEL WIDGET DE LIBRETA DE CONTACTOS
+        // =================================================================================
+        const contactsWidget = document.getElementById('contacts-widget');
+        const contactsToggleBtn = document.getElementById('contacts-toggle-btn');
+        const contactsWidgetBody = document.getElementById('contacts-widget-body');
+        const contactsTableBody = document.getElementById('contacts-table-body');
+        const contactsEmptyMessage = document.getElementById('contacts-empty-message');
+        const addContactBtn = document.getElementById('add-contact-btn');
+        const contactModalEl = document.getElementById('contactModal');
+        const contactModal = new bootstrap.Modal(contactModalEl);
+        const saveContactBtn = document.getElementById('saveContactBtn');
+        let allContacts = [];
+        let currentEditingContactId = null;
+        let contactsCurrentPage = 1;
+        const contactsPerPage = 10;
+
+        /**
+         * Update pagination controls for contacts table
+         */
+        function updateContactsPagination(start, end, total, totalPages) {
+            const paginationDiv = document.getElementById('contacts-pagination');
+            const startSpan = document.getElementById('contacts-start');
+            const endSpan = document.getElementById('contacts-end');
+            const totalSpan = document.getElementById('contacts-total');
+            const navUl = document.getElementById('contacts-pagination-nav');
+
+            if (!paginationDiv || !startSpan || !endSpan || !totalSpan || !navUl) {
+                console.error('Pagination elements not found');
+                return;
+            }
+
+            // Update info text
+            startSpan.textContent = start;
+            endSpan.textContent = end;
+            totalSpan.textContent = total;
+
+            // Generate pagination buttons
+            let paginationHTML = '';
+
+            // Previous button
+            paginationHTML += `
+                <li class="page-item ${contactsCurrentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${contactsCurrentPage - 1}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            `;
+
+            // Page numbers
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, contactsCurrentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <li class="page-item ${i === contactsCurrentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>
+                `;
+            }
+
+            // Next button
+            paginationHTML += `
+                <li class="page-item ${contactsCurrentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${contactsCurrentPage + 1}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            `;
+
+            navUl.innerHTML = paginationHTML;
+            paginationDiv.style.display = 'flex';
+
+            // Add click handler for pagination links
+            navUl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent bubbling to document click handler
+
+                const pageLink = e.target.closest('.page-link');
+                if (!pageLink || pageLink.classList.contains('disabled')) return;
+
+                const page = parseInt(pageLink.dataset.page);
+                console.log('Pagination clicked:', page, 'Current page:', contactsCurrentPage);
+
+                if (page && page !== contactsCurrentPage && page >= 1 && page <= totalPages) {
+                    contactsCurrentPage = page;
+                    console.log('Changing to page:', page);
+                    renderContacts();
+                }
+            });
+        }
+
+        /**
+         * Render contacts table with pagination
+         */
+        function renderContacts() {
+            console.log('renderContacts called, allContacts.length:', allContacts.length);
+
+            if (!contactsTableBody) {
+                console.error('contactsTableBody element not found!');
+                return;
+            }
+
+            if (!contactsEmptyMessage) {
+                console.error('contactsEmptyMessage element not found!');
+                return;
+            }
+
+            if (allContacts.length === 0) {
+                console.log('No contacts to display');
+                contactsTableBody.innerHTML = '';
+                contactsEmptyMessage.textContent = 'No hay contactos guardados.';
+                contactsEmptyMessage.style.display = 'block';
+                const tableResponsive = contactsTableBody.closest('.table-responsive');
+                if (tableResponsive) tableResponsive.style.display = 'none';
+
+                // Hide pagination
+                const paginationDiv = document.getElementById('contacts-pagination');
+                if (paginationDiv) paginationDiv.style.display = 'none';
+                return;
+            }
+
+            console.log('Rendering contacts table with pagination...');
+            contactsEmptyMessage.style.display = 'none';
+            const tableResponsive = contactsTableBody.closest('.table-responsive');
+            if (tableResponsive) tableResponsive.style.display = 'block';
+
+            // Calculate pagination
+            const totalPages = Math.ceil(allContacts.length / contactsPerPage);
+            const startIndex = (contactsCurrentPage - 1) * contactsPerPage;
+            const endIndex = Math.min(startIndex + contactsPerPage, allContacts.length);
+            const paginatedContacts = allContacts.slice(startIndex, endIndex);
+
+            console.log(`Showing page ${contactsCurrentPage} of ${totalPages}, contacts ${startIndex + 1}-${endIndex} of ${allContacts.length}`);
+
+            const tableHTML = paginatedContacts.map(contact => {
+                return `
+                <tr data-contact-id="${contact.id}">
+                    <td class="align-middle">${contact.nombre}</td>
+                    <td class="align-middle small text-muted">${contact.cargo || ''}${contact.cargo && contact.area ? ' / ' : ''}${contact.area || ''}</td>
+                    <td class="align-middle small">
+                        ${contact.telefono ? `<div><i class="bi bi-telephone-fill me-2"></i>${contact.telefono}</div>` : ''}
+                        ${contact.correo ? `<div><i class="bi bi-envelope-fill me-2"></i>${contact.correo}</div>` : ''}
+                    </td>
+                    <td class="align-middle small">${contact.proyecto_nombre || ''}</td>
+                    <td class="text-end align-middle">
+                        <div class="d-flex gap-1 justify-content-end">
+                            ${contact.correo ? `
+                                <a href="msteams:/l/chat/0/0?users=${contact.correo}" class="btn btn-sm btn-outline-primary" title="Chatear en Teams"><i class="bi bi-microsoft-teams"></i></a>
+                                <a href="mailto:${contact.correo}" class="btn btn-sm btn-outline-primary" title="Enviar Correo"><i class="bi bi-envelope-fill"></i></a>
+                            ` : ''}
+                            <button class="btn btn-sm btn-outline-secondary btn-edit-contact" title="Editar"><i class="bi bi-pencil-fill"></i></button>
+                            <button class="btn btn-sm btn-outline-danger btn-delete-contact" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            }).join('');
+
+            console.log('Setting table HTML...');
+            contactsTableBody.innerHTML = tableHTML;
+
+            // Update pagination controls
+            updateContactsPagination(startIndex + 1, endIndex, allContacts.length, totalPages);
+
+            console.log('Table rendered successfully');
+        }
+
+        /**
+         * Fetch all contacts from API
+         */
+        async function fetchAllContacts() {
+            console.log('fetchAllContacts called');
+            try {
+                console.log('Fetching contacts from /api/contacts...');
+                const response = await fetch('/api/contacts');
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    console.error('Response not OK:', response.status);
+                    if (contactsEmptyMessage) {
+                        contactsEmptyMessage.textContent = 'Error al cargar contactos.';
+                        contactsEmptyMessage.style.display = 'block';
+                        if (contactsTableBody) {
+                            const tableResponsive = contactsTableBody.closest('.table-responsive');
+                            if (tableResponsive) tableResponsive.style.display = 'none';
+                        }
+                    }
+                    return;
+                }
+
+                console.log('Parsing JSON response...');
+                allContacts = await response.json();
+                console.log('Contacts loaded:', allContacts.length, 'items');
+
+                // Update the original contacts copy for search functionality
+                window.originalAllContacts = [...allContacts];
+
+                if (allContacts.length > 0) {
+                    console.log('First contact sample:', allContacts[0]);
+                }
+
+                // Reset to first page when loading new data
+                contactsCurrentPage = 1;
+                console.log('Calling renderContacts...');
+                renderContacts();
+            } catch (error) {
+                console.error("Error fetching contacts:", error);
+                if (contactsEmptyMessage) {
+                    contactsEmptyMessage.textContent = 'Error al cargar contactos.';
+                    contactsEmptyMessage.style.display = 'block';
+                    if (contactsTableBody) {
+                        const tableResponsive = contactsTableBody.closest('.table-responsive');
+                        if (tableResponsive) tableResponsive.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        // Close widget when clicking outside - MOVED BEFORE PAGINATION
+        document.addEventListener('click', (event) => {
+            if (contactsWidget && contactsToggleBtn) {
+                const isClickInsideWidget = contactsWidget.contains(event.target);
+                const isClickOnToggleBtn = contactsToggleBtn.contains(event.target);
+                const isClickInsideModal = event.target.closest('.modal');
+
+                if (!isClickInsideWidget && !isClickOnToggleBtn && !isClickInsideModal && contactsWidget.classList.contains('visible')) {
+                    contactsWidget.classList.remove('visible');
+                }
+            }
+        });
+
+        // Event listeners
+        if (contactsToggleBtn) {
+            contactsToggleBtn.addEventListener('click', () => {
+                if (contactsWidget.classList.toggle('visible')) {
+                    fetchAllContacts();
+                }
+            });
+        }
+
+        if (addContactBtn) {
+            addContactBtn.addEventListener('click', () => openContactModal());
+        }
+
+        // Search functionality for contacts
+        const contactsSearchInput = document.getElementById('contacts-search-input');
+        if (contactsSearchInput) {
+            contactsSearchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                filterContacts(searchTerm);
+            });
+        }
+
+        function filterContacts(searchTerm) {
+            const paginationControls = document.getElementById('contacts-pagination');
+            const emptyMessage = document.getElementById('contacts-empty-message');
+
+            // Normalize search term: remove accents, convert to lowercase, trim
+            const normalizedSearchTerm = searchTerm
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remove accents
+                .trim();
+
+            // Store original contacts if not already stored
+            if (!window.originalAllContacts) {
+                window.originalAllContacts = [...allContacts];
+            }
+
+            if (normalizedSearchTerm === '') {
+                // If search is empty, restore all contacts
+                allContacts = [...window.originalAllContacts];
+                contactsCurrentPage = 1;
+                renderContacts();
+
+                // Show pagination for all contacts
+                const totalPages = Math.ceil(allContacts.length / contactsPerPage);
+                if (paginationControls) {
+                    paginationControls.style.display = totalPages > 1 ? 'flex' : 'none';
+                }
+
+                // Hide empty message
+                if (emptyMessage) {
+                    emptyMessage.style.display = 'none';
+                }
+            } else {
+                // Search through all original contacts
+                const filteredContacts = window.originalAllContacts.filter(contact => {
+                    // Get all searchable fields from contact
+                    const searchableText = [
+                        contact.nombre || '',
+                        contact.telefono || '',
+                        contact.correo || '',
+                        contact.cargo || '',
+                        contact.area || '',
+                        contact.proyecto_nombre || '',
+                        (contact.proyecto && contact.proyecto.project) || ''
+                    ].join(' ').toLowerCase()
+                      .normalize('NFD')
+                      .replace(/[\u0300-\u036f]/g, ''); // Remove accents
+
+                    // More flexible search: check if any word of the search term matches
+                    const searchWords = normalizedSearchTerm.split(/\s+/).filter(word => word.length > 0);
+
+                    if (searchWords.length === 0) return true;
+
+                    // Check if ALL search words are found (AND logic)
+                    let isVisible = searchWords.every(word => searchableText.includes(word));
+
+                    // If no results with AND, try OR logic (any word matches)
+                    if (!isVisible && searchWords.length > 1) {
+                        isVisible = searchWords.some(word => searchableText.includes(word));
+                    }
+
+                    return isVisible;
+                });
+
+                // Update allContacts with filtered results and render
+                allContacts = filteredContacts;
+                contactsCurrentPage = 1;
+                renderContacts();
+
+                // Hide pagination during search
+                if (paginationControls) {
+                    paginationControls.style.display = 'none';
+                }
+
+                // Show empty message if no results
+                if (emptyMessage) {
+                    if (filteredContacts.length === 0) {
+                        emptyMessage.textContent = `No se encontraron contactos con "${searchTerm}"`;
+                        emptyMessage.style.display = 'block';
+                    } else {
+                        emptyMessage.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        if (saveContactBtn) {
+            saveContactBtn.addEventListener('click', saveContact);
+        }
+
+        if (contactsWidgetBody) {
+            contactsWidgetBody.addEventListener('click', (e) => {
+                const editBtn = e.target.closest('.btn-edit-contact');
+                if (editBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const contactRow = editBtn.closest('tr');
+                    const contactId = parseInt(contactRow.dataset.contactId, 10);
+
+                    console.log('Edit button clicked:', {
+                        contactId: contactId,
+                        rowElement: contactRow,
+                        dataset: contactRow.dataset
+                    });
+
+                    const contact = allContacts.find(c => c.id === contactId);
+                    console.log('Found contact:', contact);
+                    console.log('Available contacts:', allContacts.slice(0, 3)); // Show first 3 for debugging
+
+                    if (contact) {
+                        console.log('Opening modal with contact data');
+                        openContactModal(contact);
+                    } else {
+                        console.error('Contact not found for ID:', contactId);
+                        showToast('No se encontró el contacto', 'error');
+                    }
+                }
+
+                const deleteBtn = e.target.closest('.btn-delete-contact');
+                if (deleteBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const contactId = parseInt(deleteBtn.closest('tr').dataset.contactId, 10);
+                    console.log('Delete button clicked for contact ID:', contactId);
+                    deleteContact(contactId);
+                }
+            });
+        }
+
+        // Load projects for dropdown
+        async function loadProjectsDropdown() {
+            console.log('=== LOADING PROJECTS DROPDOWN ===');
+            try {
+                console.log('Fetching projects from /api/projects...');
+                const response = await fetch('/api/projects');
+                console.log('Projects API response status:', response.status);
+
+                if (!response.ok) {
+                    console.error('Failed to load projects, status:', response.status);
+                    return;
+                }
+
+                const projects = await response.json();
+                console.log('Projects data received:', projects.length, 'items');
+                console.log('First 3 projects:', projects.slice(0, 3));
+
+                const select = document.getElementById('contact-proyecto');
+                console.log('Projects select element found:', !!select);
+
+                if (!select) {
+                    console.error('Projects select not found');
+                    return;
+                }
+
+                console.log('Current select options before clearing:', select.children.length);
+                console.log('Current select HTML:', select.innerHTML);
+
+                // Clear existing options except the first one
+                select.innerHTML = '<option value="">Seleccionar proyecto</option>';
+                console.log('Select cleared');
+
+                // Add projects to dropdown
+                projects.forEach((project, index) => {
+                    console.log(`Adding project ${index}:`, project);
+                    console.log(`Project ID fields:`, {
+                        id_project: project.id_project,
+                        id: project.id,
+                        Id_Project: project.Id_Project,
+                        ID_Project: project.ID_Project
+                    });
+
+                    const option = document.createElement('option');
+                    // Try different possible ID field names
+                    const projectId = project.id_project || project.id || project.Id_Project || project.ID_Project || project['id_project'] || project['Id Project'];
+                    console.log(`Using project ID: ${projectId} for project: ${project.project || project.Project}`);
+
+                    option.value = projectId;
+                    option.textContent = project.project || project.Project || `Project ${index}`;
+                    select.appendChild(option);
+                });
+
+                console.log(`Loaded ${projects.length} projects in dropdown`);
+                console.log('Final select options count:', select.children.length);
+                console.log('Final select HTML:', select.innerHTML);
+
+            } catch (error) {
+                console.error('Error loading projects:', error);
+            }
+        }
+
+        // Contact modal functions
+        function openContactModal(contact = null) {
+            console.log('Opening contact modal for:', contact);
+
+            const form = document.getElementById('contactForm');
+            if (!form) {
+                console.error('Contact form not found');
+                return;
+            }
+
+            // Load projects dropdown if not already loaded
+            const select = document.getElementById('contact-proyecto');
+            if (select && select.children.length <= 1) {
+                loadProjectsDropdown();
+            }
+
+            // Show modal first
+            contactModal.show();
+
+            // Wait for modal to be fully visible
+            setTimeout(() => {
+                if (contact) {
+                    console.log('Edit mode - contact:', contact);
+                    currentEditingContactId = contact.id;
+
+                    // Update modal title
+                    const modalTitle = document.getElementById('contactModalLabel');
+                    if (modalTitle) {
+                        modalTitle.textContent = 'Editar Contacto';
+                    }
+
+                    // Set all field values
+                    const fields = [
+                        { id: 'contact-id', value: contact.id },
+                        { id: 'contact-nombre', value: contact.nombre || '' },
+                        { id: 'contact-telefono', value: contact.telefono || '' },
+                        { id: 'contact-correo', value: contact.correo || '' },
+                        { id: 'contact-cargo', value: contact.cargo || '' },
+                        { id: 'contact-area', value: contact.area || '' },
+                        { id: 'contact-notas', value: contact.notas || '' },
+                        { id: 'contact-proyecto', value: contact.proyecto_id || '' }
+                    ];
+
+                    fields.forEach(field => {
+                        const element = document.getElementById(field.id);
+                        if (element) {
+                            element.value = field.value;
+
+                            // For selects, handle option selection with debugging
+                            if (element.tagName === 'SELECT' && field.value) {
+                                console.log(`Setting project select to value: ${field.value}`);
+                                setTimeout(() => {
+                                    const option = element.querySelector(`option[value="${field.value}"]`);
+                                    console.log(`Found option for value ${field.value}:`, !!option);
+                                    if (option) {
+                                        option.selected = true;
+                                        console.log(`Project selected: ${option.textContent}`);
+                                    } else {
+                                        console.log(`No option found for value ${field.value}`);
+                                        console.log('Available options:', Array.from(element.options).map(opt => ({value: opt.value, text: opt.textContent})));
+                                    }
+                                }, 200);
+                            }
+                        } else {
+                            console.log(`Field element not found: ${field.id}`);
+                        }
+                    });
+
+                } else {
+                    console.log('Add mode - clearing form');
+                    currentEditingContactId = null;
+
+                    // Clear all form fields
+                    const fieldsToClear = [
+                        'contact-id',
+                        'contact-nombre',
+                        'contact-telefono',
+                        'contact-correo',
+                        'contact-cargo',
+                        'contact-area',
+                        'contact-notas',
+                        'contact-proyecto'
+                    ];
+
+                    fieldsToClear.forEach(fieldId => {
+                        const element = document.getElementById(fieldId);
+                        if (element) {
+                            element.value = '';
+                            console.log(`Cleared field: ${fieldId}`);
+                        } else {
+                            console.log(`Field not found for clearing: ${fieldId}`);
+                        }
+                    });
+
+                    // Update modal title
+                    const modalTitle = document.getElementById('contactModalLabel');
+                    if (modalTitle) {
+                        modalTitle.textContent = 'Agregar Nuevo Contacto';
+                    }
+                }
+
+            }, 300);
+        }
+
+        async function saveContact() {
+            console.log('=== SAVING CONTACT ===');
+            const form = document.getElementById('contactForm');
+            if (!form) {
+                console.error('Contact form not found');
+                return;
+            }
+
+            if (!form.checkValidity()) {
+                console.log('Form validation failed');
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+
+            // Debug: Check what FormData is actually getting
+            console.log('=== FORM DATA DEBUG ===');
+            for (let [key, value] of formData.entries()) {
+                console.log(`FormData ${key}: ${value}`);
+            }
+
+            // Debug: Check direct element values
+            console.log('=== DIRECT ELEMENT VALUES ===');
+            const nombreElement = document.getElementById('contact-nombre');
+            const correoElement = document.getElementById('contact-correo');
+            const telefonoElement = document.getElementById('contact-telefono');
+            const cargoElement = document.getElementById('contact-cargo');
+            const areaElement = document.getElementById('contact-area');
+            const notasElement = document.getElementById('contact-notas');
+            const proyectoElement = document.getElementById('contact-proyecto');
+
+            console.log('Direct values:', {
+                nombre: nombreElement ? nombreElement.value : 'NOT FOUND',
+                correo: correoElement ? correoElement.value : 'NOT FOUND',
+                telefono: telefonoElement ? telefonoElement.value : 'NOT FOUND',
+                cargo: cargoElement ? cargoElement.value : 'NOT FOUND',
+                area: areaElement ? areaElement.value : 'NOT FOUND',
+                notas: notasElement ? notasElement.value : 'NOT FOUND',
+                proyecto: proyectoElement ? proyectoElement.value : 'NOT FOUND'
+            });
+
+            const payload = {
+                nombre: nombreElement ? nombreElement.value : '',
+                telefono: telefonoElement ? telefonoElement.value : null,
+                correo: correoElement ? correoElement.value : null,
+                cargo: cargoElement ? cargoElement.value : null,
+                area: areaElement ? areaElement.value : null,
+                notas: notasElement ? notasElement.value : null,
+                proyecto_id: proyectoElement && proyectoElement.value ? parseInt(proyectoElement.value) : null,
+            };
+
+            console.log('Form data being sent:', payload);
+            console.log('Current editing contact ID:', currentEditingContactId);
+
+            const isEdit = !!currentEditingContactId;
+            const url = isEdit ? `/api/contacts/${currentEditingContactId}` : '/api/contacts';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            console.log(`Making ${method} request to: ${url}`);
+            console.log('Request payload:', JSON.stringify(payload, null, 2));
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response body:', errorText);
+                    throw new Error(`No se pudo guardar el contacto. Status: ${response.status}, Error: ${errorText}`);
+                }
+
+                const responseData = await response.json();
+                console.log('Success response:', responseData);
+
+                // Save current state before refreshing
+                const searchInput = document.getElementById('contacts-search-input');
+                const currentSearch = searchInput ? searchInput.value : '';
+                const currentPageBeforeSave = contactsCurrentPage;
+
+                console.log('Saving state before refresh:', {
+                    search: currentSearch,
+                    page: currentPageBeforeSave
+                });
+
+                await fetchAllContacts();
+                contactModal.hide();
+
+                // Restore state after refresh
+                if (currentSearch) {
+                    // If there was a search, restore it
+                    console.log('Restoring search:', currentSearch);
+                    if (searchInput) {
+                        searchInput.value = currentSearch;
+                        filterContacts(currentSearch);
+                    }
+                } else {
+                    // If no search, restore the page
+                    console.log('Restoring page:', currentPageBeforeSave);
+                    contactsCurrentPage = currentPageBeforeSave;
+                    renderContacts();
+                }
+
+                // Show success message
+                const successMsg = isEdit ? 'Contacto actualizado exitosamente' : 'Contacto agregado exitosamente';
+                showToast(successMsg, 'success');
+
+            } catch (error) {
+                console.error("Error saving contact:", error);
+                showToast(`Error al guardar: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteContact(contactId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este contacto?')) return;
+
+            try {
+                // Save current state before refreshing
+                const searchInput = document.getElementById('contacts-search-input');
+                const currentSearch = searchInput ? searchInput.value : '';
+                const currentPageBeforeDelete = contactsCurrentPage;
+
+                console.log('Saving state before delete:', {
+                    search: currentSearch,
+                    page: currentPageBeforeDelete
+                });
+
+                const response = await fetch(`/api/contacts/${contactId}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
+
+                if (!response.ok && response.status !== 204) {
+                    throw new Error('No se pudo eliminar el contacto.');
+                }
+
+                await fetchAllContacts();
+
+                // Restore state after refresh
+                if (currentSearch) {
+                    // If there was a search, restore it
+                    console.log('Restoring search after delete:', currentSearch);
+                    if (searchInput) {
+                        searchInput.value = currentSearch;
+                        filterContacts(currentSearch);
+                    }
+                } else {
+                    // If no search, restore the page (adjust if needed)
+                    console.log('Restoring page after delete:', currentPageBeforeDelete);
+                    const totalPages = Math.ceil(allContacts.length / contactsPerPage);
+                    contactsCurrentPage = Math.min(currentPageBeforeDelete, totalPages);
+                    renderContacts();
+                }
+
+                showToast('Contacto eliminado exitosamente', 'success');
+
+            } catch (error) {
+                console.error("Error deleting contact:", error);
+                showToast(`Error al eliminar: ${error.message}`, 'error');
+            }
+        }
+
+        // Helper function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Toast notification helper
+        function showToast(message, type = 'info') {
+            // Create toast container if it doesn't exist
+            let toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toast-container';
+                toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                toastContainer.style.zIndex = '1050';
+                document.body.appendChild(toastContainer);
+            }
+
+            // Create toast element
+            const toastEl = document.createElement('div');
+            toastEl.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary'} border-0`;
+            toastEl.setAttribute('role', 'alert');
+            toastEl.setAttribute('aria-live', 'assertive');
+            toastEl.setAttribute('aria-atomic', 'true');
+
+            toastEl.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+
+            toastContainer.appendChild(toastEl);
+
+            // Show toast
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+
+            // Remove toast element after it's hidden
+            toastEl.addEventListener('hidden.bs.toast', () => {
+                toastEl.remove();
             });
         }
 

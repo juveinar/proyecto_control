@@ -4,7 +4,7 @@ from .models import Proyecto, Evento, ProyectoFase
 
 @admin.register(Proyecto)
 class ProyectoAdmin(admin.ModelAdmin):
-    list_display = ['id_project', 'project', 'estado', 'percent_complete', 'start', 'finish']
+    list_display = ['id_project', 'project', 'estado', 'start', 'finish']
     list_filter = ['estado', 'start']
     search_fields = ['id_project', 'rf', 'project']
     readonly_fields = ['created_at', 'updated_at']
@@ -13,7 +13,7 @@ class ProyectoAdmin(admin.ModelAdmin):
             'fields': ('id_project', 'rf', 'project', 'project_leader')
         }),
         ('Estado y Progreso', {
-            'fields': ('estado', 'percent_complete')
+            'fields': ('estado',)
         }),
         ('Fechas', {
             'fields': ('start', 'finish')
@@ -33,7 +33,7 @@ class ProyectoAdmin(admin.ModelAdmin):
         }),
         ('Información Adicional', {
             'fields': (
-                'contacto', 'cantidad_maquinas', 'cod_serv_hostname', 'plataforma', 'so',
+                'cantidad_maquinas', 'cod_serv_hostname', 'plataforma', 'so',
                 'windows_licencia_activada', 'dominio', 'plataforma_backup', 'proveedor',
                 'comunidad_snmp', 'fgn_172_22_16_93', 'rt', 'servicio', 'observaciones'
             )

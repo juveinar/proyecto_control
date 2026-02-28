@@ -20,5 +20,8 @@ urlpatterns = [
 
     # Generación de informes
     path('generar_informe', views.generar_informe_ia, name='generar_informe_ia'),
-]
 
+    # API de Contactos
+    path('api/contacts', views.api_contacts, name='api_contacts'),
+    path('api/contacts/<int:contact_id>', views.api_contact_detail, name='api_contact_detail'),
+]

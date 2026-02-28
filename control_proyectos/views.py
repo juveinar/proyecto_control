@@ -1,22 +1,20 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, date
 import json
 import time
 import os
 from django.conf import settings
+from .models import Proyecto, Evento, ProyectoFase, Contacto
 
-from .models import Proyecto, Evento, ProyectoFase
-
-
+@require_http_methods(["GET", "POST"])
 def login_view(request):
     """Vista de login"""
     if request.user.is_authenticated:
@@ -49,7 +47,6 @@ def logout_view(request):
     return redirect('login')
 
 
-@ensure_csrf_cookie
 @login_required
 def index(request):
     """Vista principal"""
@@ -58,6 +55,7 @@ def index(request):
 
 # ==================== API DE PROYECTOS ====================
 
+@require_http_methods(["GET", "POST"])
 @login_required
 def api_projects(request):
     """Obtener todos los proyectos o crear uno nuevo"""
@@ -83,7 +81,6 @@ def api_projects(request):
                 'Project Leader': p.project_leader or '',
                 'Estado': p.estado or '',
                 'Fase': fase_str,  # Nuevo campo para la tabla
-                '% Complete': p.percent_complete or 0.0,
                 'Start': p.start.strftime('%Y-%m-%d') if p.start else None,
                 'Finish': p.finish.strftime('%Y-%m-%d') if p.finish else None,
                 'Computo': p.computo or '',
@@ -101,7 +98,6 @@ def api_projects(request):
                 'Balanceo': p.balanceo or '',
                 'Backup': p.backup or '',
                 'CHECK AV': p.check_av or '',
-                'CONTACTO': p.contacto or '',
                 'CANTIDAD MAQUINAS': p.cantidad_maquinas or '',
                 'COD SERV_HOSTNAME': p.cod_serv_hostname or '',
                 'PLATAFORMA': p.plataforma or '',
@@ -128,6 +124,7 @@ def api_projects(request):
         return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 
+@require_http_methods(["GET"])
 @login_required
 def api_projects_stats(request):
     """Obtener estadísticas de proyectos por mes"""
@@ -162,6 +159,7 @@ def api_projects_stats(request):
     })
 
 
+@require_http_methods(["POST"])
 @login_required
 def api_projects_add(request):
     """Agregar un nuevo proyecto"""
@@ -196,11 +194,6 @@ def api_projects_add(request):
             proyecto.project_leader = data['Project Leader']
         if 'Estado' in data:
             proyecto.estado = data['Estado']
-        if '% Complete' in data:
-            try:
-                proyecto.percent_complete = float(data['% Complete'])
-            except (ValueError, TypeError):
-                proyecto.percent_complete = 0.0
 
         # Fechas
         for field_name, model_field in [
@@ -237,7 +230,7 @@ def api_projects_add(request):
 
         # Campos adicionales
         campos_adicionales = {
-            'CONTACTO': 'contacto',
+            # 'CONTACTO': 'contacto',  -- Se maneja manualmente abajo
             'CANTIDAD MAQUINAS': 'cantidad_maquinas',
             'COD SERV_HOSTNAME': 'cod_serv_hostname',
             'PLATAFORMA': 'plataforma',
@@ -256,6 +249,19 @@ def api_projects_add(request):
         for excel_field, model_field in campos_adicionales.items():
             if excel_field in data:
                 setattr(proyecto, model_field, data[excel_field] or None)
+
+        # Procesar contacto si existe
+        # if 'CONTACTO' in data and data['CONTACTO']:
+        #     val = data['CONTACTO']
+        #     if isinstance(val, int) or (isinstance(val, str) and val.isdigit()):
+        #         try:
+        #             contacto_instance = Contacto.objects.get(pk=int(val))
+        #             # Asignar el contacto_info con el nombre del contacto
+        #             proyecto.contacto_info = contacto_instance.nombre
+        #         except Contacto.DoesNotExist:
+        #             pass
+        #     elif val:
+        #         proyecto.contacto_info = str(val)
 
         proyecto.save()
 
@@ -277,11 +283,9 @@ def api_projects_add(request):
             'Project Leader': proyecto.project_leader or '',
             'Estado': proyecto.estado or '',
             'Fase': f"Despliegue ({timezone.now().strftime('%Y-%m-%d')})",
-            '% Complete': proyecto.percent_complete or 0.0,
             'Start': proyecto.start.strftime('%Y-%m-%d') if proyecto.start else None,
             'Finish': proyecto.finish.strftime('%Y-%m-%d') if proyecto.finish else None,
             'Computo': proyecto.computo or '',
-            'CONTACTO': proyecto.contacto or '',
             'CANTIDAD MAQUINAS': proyecto.cantidad_maquinas or '',
             'COD SERV_HOSTNAME': proyecto.cod_serv_hostname or '',
             'PLATAFORMA': proyecto.plataforma or '',
@@ -303,6 +307,7 @@ def api_projects_add(request):
         return JsonResponse({'error': f'No se pudo guardar el nuevo proyecto: {str(e)}'}, status=500)
 
 
+@require_http_methods(["PUT"])
 @login_required
 def api_projects_update(request, project_id):
     """Actualizar un proyecto existente"""
@@ -322,11 +327,6 @@ def api_projects_update(request, project_id):
             proyecto.project_leader = data['Project Leader']
         if 'Estado' in data:
             proyecto.estado = data['Estado']
-        if '% Complete' in data:
-            try:
-                proyecto.percent_complete = float(data['% Complete'])
-            except (ValueError, TypeError):
-                pass
 
         # Fechas
         for field_name, model_field in [
@@ -380,7 +380,7 @@ def api_projects_update(request, project_id):
 
         # Campos adicionales
         campos_adicionales = {
-            'CONTACTO': 'contacto',
+            # 'CONTACTO': 'contacto', -- Se maneja manualmente
             'CANTIDAD MAQUINAS': 'cantidad_maquinas',
             'COD SERV_HOSTNAME': 'cod_serv_hostname',
             'PLATAFORMA': 'plataforma',
@@ -399,6 +399,19 @@ def api_projects_update(request, project_id):
         for excel_field, model_field in campos_adicionales.items():
             if excel_field in data:
                 setattr(proyecto, model_field, data[excel_field] or None)
+
+        # Manejo especial para CONTACTO
+        if 'CONTACTO' in data:
+            val = data['CONTACTO']
+            if isinstance(val, int) or (isinstance(val, str) and val.isdigit()):
+                try:
+                    contacto_instance = Contacto.objects.get(pk=int(val))
+                    # Asignar el contacto_info con el nombre del contacto
+                    proyecto.contacto_info = contacto_instance.nombre
+                except Contacto.DoesNotExist:
+                    pass
+            elif val:
+                proyecto.contacto_info = str(val)
 
         proyecto.save()
 
@@ -463,7 +476,6 @@ def api_projects_update(request, project_id):
             'Project Leader': proyecto.project_leader or '',
             'Estado': proyecto.estado or '',
             'Fase': fase_str,
-            '% Complete': proyecto.percent_complete or 0.0,
             'Start': proyecto.start.strftime('%Y-%m-%d') if proyecto.start else None,
             'Finish': proyecto.finish.strftime('%Y-%m-%d') if proyecto.finish else None,
             'Computo': proyecto.computo or '',
@@ -481,7 +493,6 @@ def api_projects_update(request, project_id):
             'Balanceo': proyecto.balanceo or '',
             'Backup': proyecto.backup or '',
             'CHECK AV': proyecto.check_av or '',
-            'CONTACTO': proyecto.contacto or '',
             'CANTIDAD MAQUINAS': proyecto.cantidad_maquinas or '',
             'COD SERV_HOSTNAME': proyecto.cod_serv_hostname or '',
             'PLATAFORMA': proyecto.plataforma or '',
@@ -505,6 +516,7 @@ def api_projects_update(request, project_id):
         return JsonResponse({'error': f'No se pudo actualizar el proyecto: {str(e)}'}, status=500)
 
 
+@require_http_methods(["PUT"])
 @login_required
 def api_projects_update_status(request, project_id):
     """Actualizar el estado de un campo específico de un proyecto"""
@@ -558,6 +570,7 @@ def api_projects_update_status(request, project_id):
 
 # ==================== API DE EVENTOS ====================
 
+@require_http_methods(["GET", "POST"])
 @login_required
 def api_events(request):
     """Obtener todos los eventos o crear uno nuevo"""
@@ -624,6 +637,7 @@ def api_events(request):
         return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 
+@require_http_methods(["GET"])
 @login_required
 def api_events_next(request):
     """Obtener el próximo evento"""
@@ -646,6 +660,7 @@ def api_events_next(request):
     return JsonResponse(evento_dict)
 
 
+@require_http_methods(["POST"])
 @login_required
 def api_events_add(request):
     """Agregar un nuevo evento"""
@@ -689,6 +704,7 @@ def api_events_add(request):
         return JsonResponse({'error': f'No se pudo guardar el nuevo evento: {str(e)}'}, status=500)
 
 
+@require_http_methods(["PUT", "DELETE"])
 @login_required
 def api_events_update(request, event_id):
     """Actualizar o eliminar un evento existente"""
@@ -755,6 +771,102 @@ def api_events_update(request, event_id):
         return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 
+# ==================== API DE CONTACTOS ====================
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_contacts(request):
+    """Obtener todos los contactos o crear uno nuevo."""
+    if request.method == 'GET':
+        contactos = Contacto.objects.select_related('proyecto').all().order_by('nombre')
+        contactos_list = []
+        for c in contactos:
+            contactos_list.append({
+                'id': c.id,
+                'nombre': c.nombre,
+                'telefono': c.telefono,
+                'correo': c.correo,
+                'cargo': c.cargo,
+                'area': c.area,
+                'notas': c.notas,
+                'proyecto_id': c.proyecto.id_project if c.proyecto else None,
+                'proyecto_nombre': c.proyecto.project if c.proyecto else '',
+            })
+        return JsonResponse(contactos_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            proyecto_instance = None
+            proyecto_id = data.get('proyecto_id')
+            if proyecto_id:
+                try:
+                    proyecto_instance = Proyecto.objects.get(id_project=proyecto_id)
+                except Proyecto.DoesNotExist:
+                    pass  # No asignar proyecto si no se encuentra
+
+            contacto = Contacto.objects.create(
+                nombre=data.get('nombre'),
+                telefono=data.get('telefono'),
+                correo=data.get('correo'),
+                cargo=data.get('cargo'),
+                area=data.get('area'),
+                notas=data.get('notas'),
+                proyecto=proyecto_instance,
+            )
+            return JsonResponse({
+                'id': contacto.id,
+                'nombre': contacto.nombre,
+                'telefono': contacto.telefono,
+                'correo': contacto.correo,
+                'cargo': contacto.cargo,
+                'area': contacto.area,
+                'notas': contacto.notas,
+                'proyecto_id': contacto.proyecto.id_project if contacto.proyecto else None,
+                'proyecto_nombre': contacto.proyecto.project if contacto.proyecto else '',
+            }, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@require_http_methods(["PUT", "DELETE"])
+def api_contact_detail(request, contact_id):
+    """Actualizar o eliminar un contacto."""
+    try:
+        contacto = Contacto.objects.get(pk=contact_id)
+    except Contacto.DoesNotExist:
+        return JsonResponse({'error': 'Contacto no encontrado'}, status=404)
+
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            for field in ['nombre', 'telefono', 'correo', 'cargo', 'area', 'notas']:
+                if field in data:
+                    setattr(contacto, field, data[field])
+
+            if 'proyecto_id' in data:
+                proyecto_id = data.get('proyecto_id')
+                proyecto_instance = None
+                if proyecto_id:
+                    try:
+                        proyecto_instance = Proyecto.objects.get(id_project=proyecto_id)
+                    except Proyecto.DoesNotExist:
+                        pass  # No cambiar si no se encuentra
+                contacto.proyecto = proyecto_instance
+
+            contacto.save()
+            return JsonResponse({'id': contacto.id, 'nombre': contacto.nombre, 'telefono': contacto.telefono, 'correo': contacto.correo, 'cargo': contacto.cargo, 'area': contacto.area, 'notas': contacto.notas,
+                               'proyecto_id': contacto.proyecto.id_project if contacto.proyecto else None,
+                               'proyecto_nombre': contacto.proyecto.project if contacto.proyecto else ''})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    elif request.method == 'DELETE':
+        contacto.delete()
+        return JsonResponse({'success': True}, status=204)
+
+
 # ==================== GENERACIÓN DE INFORMES CON IA ====================
 
 @login_required
@@ -798,7 +910,6 @@ def generar_informe_ia(request):
             "ID": proyecto.id_project or 'N/A',
             "RF": proyecto.rf or 'N/A',
             "Nombre del Proyecto": proyecto.project or 'N/A',
-            "Progreso": f"{proyecto.percent_complete * 100:.2f}%",
             "Estado": proyecto.estado or 'N/A',
             "Líder de Proyecto": proyecto.project_leader or 'N/A',
             "Inicio Real": proyecto.start.strftime('%Y-%m-%d') if proyecto.start else 'N/A',

@@ -14,13 +14,13 @@ class Proyecto(models.Model):
 
     # Estado y progreso
     estado = models.CharField(max_length=50, verbose_name="Estado", default="Despliegue", blank=True, null=True)
-    percent_complete = models.FloatField(
-        verbose_name="% Complete",
-        default=0.0,
-        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
-        blank=True,
-        null=True
-    )
+    #percent_complete = models.FloatField(
+    #    verbose_name="% Complete",
+    #    default=0.0,
+    #    validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
+    #    blank=True,
+    #    null=True
+    #)
 
     # Fechas
     start = models.DateField(verbose_name="Start", blank=True, null=True)
@@ -48,7 +48,17 @@ class Proyecto(models.Model):
     check_av = models.CharField(max_length=100, verbose_name="Check AV", blank=True, null=True)
 
     # Campos adicionales del Excel
-    contacto = models.CharField(max_length=255, verbose_name="CONTACTO", blank=True, null=True)
+    # Renombramos el campo anterior para preservar la información de texto y evitar errores de migración
+    #contacto_info = models.CharField(max_length=255, verbose_name="Información de Contacto (Texto)", blank=True, null=True)
+
+    # contacto = models.ForeignKey(
+    #     'Contacto',
+    #     on_delete=models.SET_NULL,
+    #     verbose_name="Contacto Principal",
+    #     related_name='proyectos_principales',
+    #     blank=True,
+    #     null=True
+    # )
     cantidad_maquinas = models.CharField(max_length=255, verbose_name="CANTIDAD MAQUINAS", blank=True, null=True)
     cod_serv_hostname = models.TextField(verbose_name="COD SERV_HOSTNAME", blank=True, null=True)
     plataforma = models.CharField(max_length=255, verbose_name="PLATAFORMA", blank=True, null=True)
@@ -139,3 +149,32 @@ class ProyectoFase(models.Model):
 
     def __str__(self):
         return f'{self.proyecto} - {self.get_fase_display()}'
+
+
+class Contacto(models.Model):
+    """Modelo para almacenar contactos de la libreta."""
+    nombre = models.CharField(max_length=255, verbose_name="Nombre")
+    telefono = models.CharField(max_length=50, verbose_name="Teléfono", blank=True, null=True)
+    correo = models.EmailField(verbose_name="Correo Electrónico", blank=True, null=True, db_index=True)
+    cargo = models.CharField(max_length=100, verbose_name="Cargo", blank=True, null=True)
+    area = models.CharField(max_length=100, verbose_name="Área", blank=True, null=True)
+    notas = models.TextField(verbose_name="Notas", blank=True, null=True)
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.SET_NULL,
+        verbose_name="Proyecto Asociado",
+        related_name='contactos',
+        blank=True,
+        null=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Contacto"
+        verbose_name_plural = "Contactos"
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
