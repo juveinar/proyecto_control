@@ -74,6 +74,13 @@ def api_projects(request):
             else:
                 fase_str = "Sin Fase"
 
+            # Obtener información del contacto
+            contacto_info = ''
+            if p.contacto:
+                contacto_info = p.contacto.nombre
+                if p.contacto.correo:
+                    contacto_info += f" ({p.contacto.correo})"
+
             proyecto_dict = {
                 'Id Project': p.id_project,
                 'RF': p.rf or '',
@@ -111,6 +118,8 @@ def api_projects(request):
                 'RT': p.rt or '',
                 'SERVICIO': p.servicio or '',
                 'OBSERVACIONES': p.observaciones or '',
+                'CONTACTO': contacto_info,
+                'CONTACTO_ID': p.contacto.id if p.contacto else None,
             }
             proyectos_list.append(proyecto_dict)
 
@@ -230,7 +239,7 @@ def api_projects_add(request):
 
         # Campos adicionales
         campos_adicionales = {
-            # 'CONTACTO': 'contacto',  -- Se maneja manualmente abajo
+            'CONTACTO': 'contacto_id',  # Campo para contacto
             'CANTIDAD MAQUINAS': 'cantidad_maquinas',
             'COD SERV_HOSTNAME': 'cod_serv_hostname',
             'PLATAFORMA': 'plataforma',
@@ -250,20 +259,12 @@ def api_projects_add(request):
             if excel_field in data:
                 setattr(proyecto, model_field, data[excel_field] or None)
 
-        # Procesar contacto si existe
-        # if 'CONTACTO' in data and data['CONTACTO']:
-        #     val = data['CONTACTO']
-        #     if isinstance(val, int) or (isinstance(val, str) and val.isdigit()):
-        #         try:
-        #             contacto_instance = Contacto.objects.get(pk=int(val))
-        #             # Asignar el contacto_info con el nombre del contacto
-        #             proyecto.contacto_info = contacto_instance.nombre
-        #         except Contacto.DoesNotExist:
-        #             pass
-        #     elif val:
-        #         proyecto.contacto_info = str(val)
-
         proyecto.save()
+
+        # Si se creó un contacto y no tenía proyecto asociado, actualizarlo
+        if proyecto.contacto and not proyecto.contacto.proyecto:
+            proyecto.contacto.proyecto = proyecto
+            proyecto.contacto.save()
 
         # 1. Requerimiento: Crear automáticamente fase Despliegue al crear proyecto
         try:
@@ -276,6 +277,12 @@ def api_projects_add(request):
             print(f"Error creando fase inicial: {e}")
 
         # Retornar el proyecto creado en formato JSON
+        contacto_info = ''
+        if proyecto.contacto:
+            contacto_info = proyecto.contacto.nombre
+            if proyecto.contacto.correo:
+                contacto_info += f" ({proyecto.contacto.correo})"
+
         proyecto_dict = {
             'Id Project': proyecto.id_project,
             'RF': proyecto.rf or '',
@@ -299,6 +306,8 @@ def api_projects_add(request):
             'RT': proyecto.rt or '',
             'SERVICIO': proyecto.servicio or '',
             'OBSERVACIONES': proyecto.observaciones or '',
+            'CONTACTO': contacto_info,
+            'CONTACTO_ID': proyecto.contacto.id if proyecto.contacto else None,
         }
 
         return JsonResponse(proyecto_dict, status=201)
@@ -380,7 +389,7 @@ def api_projects_update(request, project_id):
 
         # Campos adicionales
         campos_adicionales = {
-            # 'CONTACTO': 'contacto', -- Se maneja manualmente
+            'CONTACTO': 'contacto_id',  # Agregar campo CONTACTO
             'CANTIDAD MAQUINAS': 'cantidad_maquinas',
             'COD SERV_HOSTNAME': 'cod_serv_hostname',
             'PLATAFORMA': 'plataforma',
@@ -400,20 +409,12 @@ def api_projects_update(request, project_id):
             if excel_field in data:
                 setattr(proyecto, model_field, data[excel_field] or None)
 
-        # Manejo especial para CONTACTO
-        if 'CONTACTO' in data:
-            val = data['CONTACTO']
-            if isinstance(val, int) or (isinstance(val, str) and val.isdigit()):
-                try:
-                    contacto_instance = Contacto.objects.get(pk=int(val))
-                    # Asignar el contacto_info con el nombre del contacto
-                    proyecto.contacto_info = contacto_instance.nombre
-                except Contacto.DoesNotExist:
-                    pass
-            elif val:
-                proyecto.contacto_info = str(val)
-
         proyecto.save()
+
+        # Si se creó un contacto y no tenía proyecto asociado, actualizarlo
+        if proyecto.contacto and not proyecto.contacto.proyecto:
+            proyecto.contacto.proyecto = proyecto
+            proyecto.contacto.save()
 
         # 2. Requerimiento: Actualizar Fase si se envía en el JSON
         nueva_fase = data.get('Nueva Fase')
@@ -468,6 +469,13 @@ def api_projects_update(request, project_id):
         else:
             fase_str = "Sin Fase"
 
+        # Obtener información del contacto
+        contacto_info = ''
+        if proyecto.contacto:
+            contacto_info = proyecto.contacto.nombre
+            if proyecto.contacto.correo:
+                contacto_info += f" ({proyecto.contacto.correo})"
+
         # Retornar el proyecto actualizado
         proyecto_dict = {
             'Id Project': proyecto.id_project,
@@ -506,6 +514,8 @@ def api_projects_update(request, project_id):
             'RT': proyecto.rt or '',
             'SERVICIO': proyecto.servicio or '',
             'OBSERVACIONES': proyecto.observaciones or '',
+            'CONTACTO': contacto_info,
+            'CONTACTO_ID': proyecto.contacto.id if proyecto.contacto else None,
         }
 
         return JsonResponse(proyecto_dict)
@@ -772,6 +782,22 @@ def api_events_update(request, event_id):
 
 
 # ==================== API DE CONTACTOS ====================
+
+@login_required
+@require_http_methods(["GET"])
+def api_contacts_simple(request):
+    """Obtener contactos en formato simple para selector desplegable."""
+    contactos = Contacto.objects.all().order_by('nombre')
+    contactos_list = []
+    for c in contactos:
+        contactos_list.append({
+            'id': c.id,
+            'nombre': c.nombre,
+            'correo': c.correo,
+            'telefono': c.telefono,
+        })
+    return JsonResponse(contactos_list, safe=False)
+
 
 @login_required
 @require_http_methods(["GET", "POST"])

@@ -704,14 +704,22 @@ const detailColumns = [
                 } else if (col === 'Computo' || col === 'OBSERVACIONES') {
                     fieldHtml = `<div class="col-12 mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><textarea class="form-control" id="field-${col}" name="${col}" rows="4">${value}</textarea></div>`;
                 } else if (col === 'CONTACTO') {
-                    // Special handling for CONTACTO field - make it readonly and show contact info
+                    // Special handling for CONTACTO field - dropdown with add button
                     fieldHtml = `<div class="col-md-6 mb-3">
                         <label for="field-${col}" class="form-label">CONTACTO</label>
-                        <input type="text" class="form-control" id="field-${col}" name="${dataKey}" value="${value}" readonly>
-                        <small class="text-muted">Este campo se muestra automáticamente según el contacto asignado en la libreta de contactos</small>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" id="field-${col}" name="${dataKey}">
+                                <option value="">Seleccionar contacto...</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="add-contact-btn" title="Agregar nuevo contacto">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">Selecciona un contacto existente o agrega uno nuevo con el botón +</small>
                     </div>`;
-                    // Fetch contact info for this project
-                    fetchContactInfo(proj['Id Project']);
+                    // Load contacts for dropdown and set selected value if exists
+                    const contactoId = proj['CONTACTO_ID'] || null;
+                    loadContactsForDropdown(contactoId);
                 } else {
                     const isDate = dateColumns.includes(col);
                     const isReadOnly = (isEdit && col === 'Id Project') || (!isEdit && col === 'Estado');
@@ -2760,6 +2768,42 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             } catch (error) {
                 console.error("Error deleting contact:", error);
                 showToast(`Error al eliminar: ${error.message}`, 'error');
+            }
+        }
+
+        // Función para cargar contactos en el selector desplegable
+        async function loadContactsForDropdown(selectedContactId = null) {
+            try {
+                const response = await fetch('/api/contacts/simple');
+                const contacts = await response.json();
+
+                const contactSelect = document.getElementById('field-CONTACTO');
+                if (contactSelect) {
+                    // Limpiar opciones existentes excepto la primera
+                    contactSelect.innerHTML = '<option value="">Seleccionar contacto...</option>';
+
+                    // Eliminar duplicados basados en el nombre (case-insensitive)
+                    const uniqueContacts = contacts.filter((contact, index, self) =>
+                        self.findIndex(c => c.nombre.toLowerCase() === contact.nombre.toLowerCase()) === index
+                    );
+
+                    // Agregar contactos únicos al selector
+                    uniqueContacts.forEach(contact => {
+                        const option = document.createElement('option');
+                        option.value = contact.id;
+                        option.textContent = contact.nombre;
+                        if (contact.correo) {
+                            option.textContent += ` (${contact.correo})`;
+                        }
+                        // Seleccionar si coincide con el valor
+                        if (selectedContactId && (contact.id == selectedContactId || contact.nombre === selectedContactId)) {
+                            option.selected = true;
+                        }
+                        contactSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading contacts:', error);
             }
         }
 

@@ -51,14 +51,14 @@ class Proyecto(models.Model):
     # Renombramos el campo anterior para preservar la información de texto y evitar errores de migración
     #contacto_info = models.CharField(max_length=255, verbose_name="Información de Contacto (Texto)", blank=True, null=True)
 
-    # contacto = models.ForeignKey(
-    #     'Contacto',
-    #     on_delete=models.SET_NULL,
-    #     verbose_name="Contacto Principal",
-    #     related_name='proyectos_principales',
-    #     blank=True,
-    #     null=True
-    # )
+    contacto = models.ForeignKey(
+        'Contacto',
+        on_delete=models.SET_NULL,
+        verbose_name="Contacto Principal",
+        related_name='proyectos_principales',
+        blank=True,
+        null=True
+    )
     cantidad_maquinas = models.CharField(max_length=255, verbose_name="CANTIDAD MAQUINAS", blank=True, null=True)
     cod_serv_hostname = models.TextField(verbose_name="COD SERV_HOSTNAME", blank=True, null=True)
     plataforma = models.CharField(max_length=255, verbose_name="PLATAFORMA", blank=True, null=True)

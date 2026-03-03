@@ -23,5 +23,6 @@ urlpatterns = [
 
     # API de Contactos
     path('api/contacts', views.api_contacts, name='api_contacts'),
+    path('api/contacts/simple', views.api_contacts_simple, name='api_contacts_simple'),
     path('api/contacts/<int:contact_id>', views.api_contact_detail, name='api_contact_detail'),
 ]
