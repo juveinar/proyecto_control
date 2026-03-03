@@ -137,15 +137,14 @@ function renderContacts() {
     const tableHTML = paginatedContacts.map(contact => {
         return `
         <tr data-contact-id="${contact.id}">
-            <td class="align-middle">${contact.nombre}</td>
-            <td class="align-middle small text-muted">${contact.cargo || ''}${contact.cargo && contact.area ? ' / ' : ''}${contact.area || ''}</td>
-            <td class="align-middle small">
-                ${contact.telefono ? `<div><i class="bi bi-telephone-fill me-2"></i>${contact.telefono}</div>` : ''}
-                ${contact.correo ? `<div><i class="bi bi-envelope-fill me-2"></i>${contact.correo}</div>` : ''}
+            <td class="align-middle" colspan="4">
+                <div><strong>${contact.nombre}</strong></div>
+                <div class="small text-muted">${contact.correo || ''}</div>
+                <div class="small text-muted">${contact.cargo || ''}${contact.cargo && contact.area ? ' / ' : ''}${contact.area || ''}</div>
+                <div class="small">${contact.proyecto_nombre || ''}</div>
             </td>
-            <td class="align-middle small">${contact.proyecto_nombre || ''}</td>
             <td class="text-end align-middle">
-                <div class="d-flex gap-1 justify-content-end">
+                <div class="d-flex flex-column gap-1">
                     ${contact.correo ? `
                         <a href="msteams:/l/chat/0/0?users=${contact.correo}" class="btn btn-sm btn-outline-primary" title="Chatear en Teams"><i class="bi bi-microsoft-teams"></i></a>
                         <a href="mailto:${contact.correo}" class="btn btn-sm btn-outline-primary" title="Enviar Correo"><i class="bi bi-envelope-fill"></i></a>
@@ -155,7 +154,7 @@ function renderContacts() {
                 </div>
             </td>
         </tr>
-    `;
+        `;
     }).join('');
     
     console.log('Setting table HTML...');

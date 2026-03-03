@@ -2150,26 +2150,28 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             console.log(`Showing page ${contactsCurrentPage} of ${totalPages}, contacts ${startIndex + 1}-${endIndex} of ${allContacts.length}`);
 
             const tableHTML = paginatedContacts.map(contact => {
+                // Ensure data-contact-id is available for edit/delete functionality
+                const contactId = contact.id || contact.Id_Project || contact.id_project;
+                const projectsHtml = contact.proyectos && contact.proyectos.length > 0
+                    ? contact.proyectos.map(p => `<a href="#" onclick="openDetailsModal(${p.id}); return false;">${p.nombre}</a>`).join(', ')
+                    : 'Sin proyecto asignado';
                 return `
-                <tr data-contact-id="${contact.id}">
-                    <td class="align-middle">${contact.nombre}</td>
-                    <td class="align-middle small text-muted">${contact.cargo || ''}${contact.cargo && contact.area ? ' / ' : ''}${contact.area || ''}</td>
-                    <td class="align-middle small">
-                        ${contact.telefono ? `<div><i class="bi bi-telephone-fill me-2"></i>${contact.telefono}</div>` : ''}
-                        ${contact.correo ? `<div><i class="bi bi-envelope-fill me-2"></i>${contact.correo}</div>` : ''}
-                    </td>
-                    <td class="align-middle small">${contact.proyecto_nombre || ''}</td>
-                    <td class="text-end align-middle">
-                        <div class="d-flex gap-1 justify-content-end">
-                            ${contact.correo ? `
-                                <a href="msteams:/l/chat/0/0?users=${contact.correo}" class="btn btn-sm btn-outline-primary" title="Chatear en Teams"><i class="bi bi-microsoft-teams"></i></a>
-                                <a href="mailto:${contact.correo}" class="btn btn-sm btn-outline-primary" title="Enviar Correo"><i class="bi bi-envelope-fill"></i></a>
-                            ` : ''}
-                            <button class="btn btn-sm btn-outline-secondary btn-edit-contact" title="Editar"><i class="bi bi-pencil-fill"></i></button>
-                            <button class="btn btn-sm btn-outline-danger btn-delete-contact" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
-                        </div>
-                    </td>
-                </tr>
+                <div class="contact-list-item" data-contact-id="${contactId}">
+                    <div class="contact-info">
+                        <div><strong>${contact.nombre}</strong></div>
+                        <div class="small text-muted">${contact.correo || ''}</div>
+                        <div class="small text-muted">${contact.cargo || ''}${contact.cargo && contact.area ? ' / ' : ''}${contact.area || ''}</div>
+                        <div class="small">${projectsHtml}</div>
+                    </div>
+                    <div class="contact-actions d-flex gap-1">
+                        ${contact.correo ? `
+                            <a href="msteams:/l/chat/0/0?users=${contact.correo}" class="btn btn-sm btn-outline-primary" title="Chatear en Teams"><i class="bi bi-microsoft-teams"></i></a>
+                            <a href="mailto:${contact.correo}" class="btn btn-sm btn-outline-primary" title="Enviar Correo"><i class="bi bi-envelope-fill"></i></a>
+                        ` : ''}
+                        <button class="btn btn-sm btn-outline-secondary btn-edit-contact" title="Editar"><i class="bi bi-pencil-fill"></i></button>
+                        <button class="btn btn-sm btn-outline-danger btn-delete-contact" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
+                    </div>
+                </div>
             `;
             }).join('');
 
@@ -2206,14 +2208,39 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 }
 
                 console.log('Parsing JSON response...');
-                allContacts = await response.json();
-                console.log('Contacts loaded:', allContacts.length, 'items');
+                const rawContacts = await response.json();
+                console.log('Raw contacts loaded:', rawContacts.length, 'items');
+
+                // Group contacts by email or name to deduplicate and aggregate projects with their IDs
+                const grouped = {};
+                rawContacts.forEach(contact => {
+                    const key = contact.correo || contact.nombre;
+                    if (!key) return; // Skip contacts without a key
+
+                    if (!grouped[key]) {
+                        grouped[key] = {
+                            ...contact,
+                            proyectos: [] // Array of {id, nombre}
+                        };
+                    }
+                    const projectId = contact.proyecto_id;
+                    const projectName = contact.proyecto_nombre;
+
+                    if (projectId && projectName) {
+                        // Avoid duplicating projects
+                        if (!grouped[key].proyectos.some(p => p.id === projectId)) {
+                            grouped[key].proyectos.push({ id: projectId, nombre: projectName });
+                        }
+                    }
+                });
+                allContacts = Object.values(grouped);
+                console.log('Grouped contacts:', allContacts.length, 'items');
 
                 // Update the original contacts copy for search functionality
                 window.originalAllContacts = [...allContacts];
 
                 if (allContacts.length > 0) {
-                    console.log('First contact sample:', allContacts[0]);
+                    console.log('First contact sample (grouped):', allContacts[0]);
                 }
 
                 // Reset to first page when loading new data
@@ -2365,13 +2392,13 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const contactRow = editBtn.closest('tr');
-                    const contactId = parseInt(contactRow.dataset.contactId, 10);
+                    const contactItem = editBtn.closest('.contact-list-item');
+                    const contactId = parseInt(contactItem.dataset.contactId, 10);
 
                     console.log('Edit button clicked:', {
                         contactId: contactId,
-                        rowElement: contactRow,
-                        dataset: contactRow.dataset
+                        rowElement: contactItem,
+                        dataset: contactItem.dataset
                     });
 
                     const contact = allContacts.find(c => c.id === contactId);
@@ -2392,7 +2419,8 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const contactId = parseInt(deleteBtn.closest('tr').dataset.contactId, 10);
+                    const contactItem = deleteBtn.closest('.contact-list-item');
+                    const contactId = parseInt(contactItem.dataset.contactId, 10);
                     console.log('Delete button clicked for contact ID:', contactId);
                     deleteContact(contactId);
                 }
