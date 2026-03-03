@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Control de Proyectos</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --ai-primary: #5856d6;
+            --ai-secondary: #6c757d;
+            --ai-success: #00ffc4;
+            --ai-danger: #ff4d8a;
+            --ai-warning: #ffde00;
+            --ai-info: #00d4ff;
+            --ai-surface: #ffffff;
+            --ai-text: #212529;
+            --ai-border: #dee2e6;
+        }
+
+        body {
+            background-color: var(--ai-surface);
+            color: var(--ai-text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .badge-ok { background-color: var(--ai-success); }
+        .badge-en-curso { background-color: var(--ai-info); }
+        .overdue { color: var(--ai-danger); font-weight: bold; }
+
+        .action-icons {
+            cursor: pointer;
+            margin: 0 2px;
+            transition: transform 0.2s;
+        }
+
+        .action-icons:hover {
+            transform: scale(1.2);
+        }
+
+        .modal-header {
+            cursor: move;
+        }
+
+        .contact-list-item {
+            border: 1px solid var(--ai-border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--ai-surface);
+        }
+
+        .contact-info {
+            flex: 1;
+        }
+
+        .contact-actions {
+            flex-shrink: 0;
+        }
+
+        .btn-ai-note {
+            background: none;
+            border: 1px solid var(--ai-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-ai-note:hover {
+            background-color: var(--ai-primary);
+            color: white;
+        }
+
+        .pendiente-cell {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .pendiente-cell:hover {
+            background-color: var(--ai-border);
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: var(--ai-secondary);
+            margin-right: 8px;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background-color: var(--ai-primary);
+            color: white;
+        }
+
+        .table-responsive {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            background-color: var(--ai-primary);
+            color: white;
+            border: none;
+        }
+
+        .widget {
+            position: fixed;
+            background: var(--ai-surface);
+            border: 1px solid var(--ai-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            z-index: 1000;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        #contacts-widget {
+            top: 80px;
+            right: 20px;
+            width: 400px;
+            display: none;
+        }
+
+        #event-widget {
+            top: 80px;
+            left: 20px;
+            width: 350px;
+            display: none;
+        }
+
+        #informe-progress-widget {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            display: none;
+        }
+
+        .widget.visible {
+            display: block !important;
+        }
+
+        .widget .btn-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        .progress {
+            height: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Módulos JavaScript -->
+    <script src="/static/js/modules/utils.js"></script>
+    <script src="/static/js/modules/contacts.js"></script>
+    <script src="/static/js/modules/projects.js"></script>
+    <script src="/static/js/modules/events.js"></script>
+    <script src="/static/js/modules/observaciones.js"></script>
+    <script src="/static/js/modules/charts.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Token CSRF -->
+    <script>
+        const csrftoken = UtilsModule.getCookie('csrftoken');
+    </script>
+
+    <!-- Contenedor Principal -->
+    <div class="container-fluid mt-4">
+        <!-- Header -->
+        <header class="row mb-4">
+            <div class="col">
+                <h1 class="text-center mb-4">Portal de Control de Proyectos</h1>
+            </div>
+        </header>
+
+        <!-- Filtros y Controles -->
+        <section class="row mb-4">
+            <div class="col-md-3">
+                <label for="year-selector" class="form-label">Filtrar por año:</label>
+                <select id="year-selector" class="form-select">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="searchInput" class="form-label">Buscar proyectos:</label>
+                <input type="text" id="searchInput" class="form-control" placeholder="Buscar por cualquier campo...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Acciones rápidas:</label>
+                <div class="d-flex gap-2">
+                    <button id="addProjectBtn" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> Nuevo Proyecto
+                    </button>
+                    <button id="contacts-toggle-btn" class="btn btn-outline-primary" title="Gestionar Contactos">
+                        <i class="bi bi-people"></i>
+                    </button>
+                    <button id="event-toggle-btn" class="btn btn-outline-info" title="Próximo Evento">
+                        <i class="bi bi-calendar-event"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tarjetas de Estado -->
+        <section class="row mb-4">
+            <div class="col-md-4">
+                <div id="finished-card" class="card text-center h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">Finalizados</h5>
+                        <p class="card-text display-4" id="finished-count">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div id="not-finished-card" class="card text-center h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">En Curso</h5>
+                        <p class="card-text display-4" id="not-finished-count">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div id="closed-card" class="card text-center h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-secondary">Cerrados</h5>
+                        <p class="card-text display-4" id="closed-count">0</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gráfico y Tabla -->
+        <main class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 id="chart-title">Proyectos Iniciados por Mes</h5>
+                        <button id="clearMonthFilterBtn" class="btn btn-sm btn-outline-secondary" style="display: none;">
+                            <i class="bi bi-x-circle"></i> Limpiar Filtro Mes
+                        </button>
+                    </div>
+                    <div class="card-body" style="height: 400px;">
+                        <canvas id="projectsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Lista de Proyectos</h5>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Mostrando <span id="page-info">Página 1 de 1</span></small>
+                            <div id="pagination-container" class="d-flex gap-2" style="display: none;">
+                                <button id="prev-page-btn" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <button id="next-page-btn" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Proyecto</th>
+                                        <th>Estado</th>
+                                        <th>Inicio</th>
+                                        <th>Fin</th>
+                                        <th>RF</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="projects-table-body">
+                                    <!-- Las filas se generarán dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Generar Informe -->
+        <section class="row mt-4">
+            <div class="col text-center">
+                <a href="/generate_report" id="generarInformeIaLink" class="btn btn-success btn-lg">
+                    <i class="bi bi-ai-generate"></i> Generar Informe con IA
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal de Proyecto -->
+    <div class="modal fade" id="projectModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="projectModalLabel">Agregar Nuevo Proyecto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="projectForm">
+                        <div class="row">
+                            <!-- Los campos del formulario se generarán dinámicamente -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveProjectBtn">Guardar</button>
+                    <button type="button" class="btn btn-info" id="backToDetailsBtn" style="display: none;">Ver Detalles</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalles -->
+    <div class="modal fade" id="detailsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel">Detalles del Proyecto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-primary" id="prevProjectBtn">
+                                <i class="bi bi-chevron-left"></i> Anterior
+                            </button>
+                            <button class="btn btn-outline-primary" id="nextProjectBtn">
+                                Siguiente <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-warning" id="editFromDetailsBtn">
+                            <i class="bi bi-pencil"></i> Editar
+                        </button>
+                    </div>
+                    <div id="detailsModalBody">
+                        <!-- Los detalles se generarán dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Observaciones -->
+    <div class="modal fade" id="observacionesModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="observacionesModalLabel">
+                        <i class="bi bi-journal-text me-2"></i>Observaciones
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Barra de búsqueda y reemplazo -->
+                    <div id="notepad-search-bar" class="mb-3" style="display: none;">
+                        <div class="input-group">
+                            <input type="text" id="notepad-search-input" class="form-control" placeholder="Buscar...">
+                            <input type="text" id="notepad-replace-input" class="form-control" placeholder="Reemplazar con...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="ObservacionesModule.goToNextMatch()">
+                                <i class="bi bi-arrow-down"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" type="button" onclick="ObservacionesModule.goToPreviousMatch()">
+                                <i class="bi bi-arrow-up"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" type="button" onclick="ObservacionesModule.replaceMatch()">
+                                Reemplazar
+                            </button>
+                            <button class="btn btn-primary" type="button" onclick="ObservacionesModule.replaceAllMatches()">
+                                Reemplazar Todo
+                            </button>
+                            <span class="input-group-text" id="notepad-match-counter">0/0</span>
+                        </div>
+                    </div>
+                    
+                    <textarea id="observacionesContent" class="form-control" rows="15" placeholder="Escribe las observaciones del proyecto aquí..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveObservacionesBtn">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Widget de Contactos -->
+    <div id="contacts-widget" class="widget">
+        <div class="widget-header p-3 border-bottom">
+            <h5 class="mb-0">
+                <i class="bi bi-people me-2"></i>Libreta de Contactos
+            </h5>
+            <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.style.display='none'"></button>
+        </div>
+        <div class="widget-body p-3">
+            <div class="mb-3">
+                <input type="text" id="contacts-search-input" class="form-control" placeholder="Buscar contactos...">
+            </div>
+            <div id="contacts-empty-message" class="text-center text-muted" style="display: none;">
+                No hay contactos guardados.
+            </div>
+            <div class="table-responsive">
+                <div id="contacts-table-body">
+                    <!-- Los contactos se cargarán dinámicamente -->
+                </div>
+            </div>
+            <div id="contacts-pagination" class="d-flex justify-content-between align-items-center mt-3" style="display: none;">
+                <span>Mostrando <span id="contacts-start">0</span> - <span id="contacts-end">0</span> de <span id="contacts-total">0</span></span>
+                <ul id="contacts-pagination-nav" class="pagination mb-0">
+                    <!-- La paginación se generará dinámicamente -->
+                </ul>
+            </div>
+        </div>
+        <div class="widget-footer p-3 border-top">
+            <button id="add-contact-btn" class="btn btn-primary w-100">
+                <i class="bi bi-plus-lg"></i> Agregar Nuevo Contacto
+            </button>
+        </div>
+    </div>
+
+    <!-- Widget de Eventos -->
+    <div id="event-widget" class="widget">
+        <div class="widget-header p-3 border-bottom">
+            <h5 class="mb-0">
+                <i class="bi bi-calendar-event me-2"></i>Próximo Evento
+            </h5>
+            <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.style.display='none'"></button>
+        </div>
+        <div class="widget-body p-3">
+            <div id="next-event-content">
+                <!-- El contenido del evento se cargará dinámicamente -->
+            </div>
+            <div class="btn-group w-100 mt-3" role="group">
+                <button class="btn btn-outline-secondary" id="home-event-btn" title="Ir al evento actual">
+                    <i class="bi bi-house"></i>
+                </button>
+                <button class="btn btn-outline-secondary" id="prev-event-btn" title="Evento anterior">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button class="btn btn-outline-secondary" id="next-event-btn" title="Siguiente evento">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        <div class="widget-footer p-3 border-top">
+            <div class="d-flex gap-2">
+                <button id="edit-event-btn" class="btn btn-outline-warning flex-fill">
+                    <i class="bi bi-pencil"></i> Editar
+                </button>
+                <button id="delete-event-btn" class="btn btn-outline-danger flex-fill">
+                    <i class="bi bi-trash"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Widget de Progreso de Informe -->
+    <div id="informe-progress-widget" class="widget">
+        <div class="widget-header p-3 border-bottom">
+            <h5 class="mb-0">
+                <i class="bi bi-file-earmark-text me-2"></i>Generando Informe
+            </h5>
+        </div>
+        <div class="widget-body p-3">
+            <div class="progress mb-3">
+                <div id="informeProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+            </div>
+            <p id="informeProgressStatus" class="text-center mb-0">Preparando generación...</p>
+        </div>
+    </div>
+
+    <!-- Modal de Contacto (para el widget) -->
+    <div class="modal fade" id="contactModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="contactModalLabel">Agregar Nuevo Contacto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="contactForm">
+                        <input type="hidden" id="contact-id">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="contact-nombre" class="form-label">Nombre *</label>
+                                <input type="text" class="form-control" id="contact-nombre" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="contact-telefono" class="form-label">Teléfono</label>
+                                <input type="tel" class="form-control" id="contact-telefono">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="contact-correo" class="form-label">Correo Electrónico</label>
+                                <input type="email" class="form-control" id="contact-correo">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="contact-cargo" class="form-label">Cargo</label>
+                                <input type="text" class="form-control" id="contact-cargo">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="contact-area" class="form-label">Área</label>
+                                <input type="text" class="form-control" id="contact-area">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="contact-proyecto" class="form-label">Proyecto Asociado</label>
+                                <select class="form-select" id="contact-proyecto">
+                                    <option value="">Seleccionar proyecto</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label for="contact-notas" class="form-label">Notas</label>
+                                <textarea class="form-control" id="contact-notas" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveContactBtn">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Evento -->
+    <div class="modal fade" id="eventModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventModalLabel">Nuevo Evento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="eventForm">
+                        <input type="hidden" id="event-id">
+                        <div class="mb-3">
+                            <label for="event-title" class="form-label">Título *</label>
+                            <input type="text" class="form-control" id="event-title" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="event-start" class="form-label">Fecha de Inicio *</label>
+                                <input type="datetime-local" class="form-control" id="event-start" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="event-end" class="form-label">Fecha de Fin</label>
+                                <input type="datetime-local" class="form-control" id="event-end">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="event-location" class="form-label">Lugar</label>
+                            <input type="text" class="form-control" id="event-location">
+                        </div>
+                        <div class="mb-3">
+                            <label for="event-description" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="event-description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveEventBtn">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor para Toast -->
+    <div id="toast-container"></div>
+
+    <script>
+        // Inicialización cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hacer modales arrastrables
+            UtilsModule.makeModalDraggable(document.getElementById('projectModal'));
+            UtilsModule.makeModalDraggable(document.getElementById('detailsModal'));
+            UtilsModule.makeModalDraggable(document.getElementById('observacionesModal'));
+            UtilsModule.makeModalDraggable(document.getElementById('contactModal'));
+            UtilsModule.makeModalDraggable(document.getElementById('eventModal'));
+            UtilsModule.makeModalDraggable(document.getElementById('informe-progress-widget'));
+
+            // Inicializar módulos
+            initializeApp();
+        });
+
+        // Función principal de inicialización
+        async function initializeApp() {
+            try {
+                // Cargar datos iniciales
+                await ProjectsModule.fetchProjects();
+                await EventsModule.fetchAllEvents();
+
+                // Configurar event listeners principales
+                setupMainEventListeners();
+
+                console.log('Aplicación inicializada correctamente');
+            } catch (error) {
+                console.error('Error al inicializar la aplicación:', error);
+                UtilsModule.showToast('Error al inicializar la aplicación', 'error');
+            }
+        }
+
+        // Configurar event listeners principales
+        function setupMainEventListeners() {
+            // Botón agregar proyecto
+            const addProjectBtn = document.getElementById('addProjectBtn');
+            if (addProjectBtn) {
+                addProjectBtn.addEventListener('click', () => {
+                    ProjectsModule.setupModalForm();
+                    const modal = new bootstrap.Modal(document.getElementById('projectModal'));
+                    modal.show();
+                });
+            }
+
+            // Selector de año
+            const yearSelector = document.getElementById('year-selector');
+            if (yearSelector) {
+                yearSelector.addEventListener('change', () => {
+                    ChartsModule.renderChart(yearSelector.value);
+                    ProjectsModule.currentPage = 1;
+                    ProjectsModule.renderTable();
+                });
+            }
+
+            // Búsqueda de proyectos
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', UtilsModule.debounce(() => {
+                    ProjectsModule.currentPage = 1;
+                    ProjectsModule.renderTable();
+                }, 300));
+            }
+
+            // Paginación
+            const prevBtn = document.getElementById('prev-page-btn');
+            const nextBtn = document.getElementById('next-page-btn');
+            
+            if (prevBtn) {
+                prevBtn.addEventListener('click', () => {
+                    if (ProjectsModule.currentPage > 1) {
+                        ProjectsModule.currentPage--;
+                        ProjectsModule.renderTable();
+                    }
+                });
+            }
+
+            if (nextBtn) {
+                nextBtn.addEventListener('click', () => {
+                    // Aquí necesitarías calcular el total de páginas
+                    const totalProjects = ProjectsModule.allProjects?.length || 0;
+                    const totalPages = Math.ceil(totalProjects / ProjectsModule.projectsPerPage);
+                    if (ProjectsModule.currentPage < totalPages) {
+                        ProjectsModule.currentPage++;
+                        ProjectsModule.renderTable();
+                    }
+                });
+            }
+
+            // Tarjetas de estado
+            const finishedCard = document.getElementById('finished-card');
+            const notFinishedCard = document.getElementById('not-finished-card');
+            const closedCard = document.getElementById('closed-card');
+
+            if (finishedCard) {
+                finishedCard.addEventListener('click', () => {
+                    ProjectsModule.currentPage = 1;
+                    ProjectsModule.currentStatusFilter = ProjectsModule.currentStatusFilter === 'finished' ? null : 'finished';
+                    ChartsModule.updateActiveCard();
+                    ProjectsModule.renderTable();
+                });
+            }
+
+            if (notFinishedCard) {
+                notFinishedCard.addEventListener('click', () => {
+                    ProjectsModule.currentPage = 1;
+                    ProjectsModule.currentStatusFilter = ProjectsModule.currentStatusFilter === 'not-finished' ? null : 'not-finished';
+                    ChartsModule.updateActiveCard();
+                    ProjectsModule.renderTable();
+                });
+            }
+
+            if (closedCard) {
+                closedCard.addEventListener('click', () => {
+                    ProjectsModule.currentPage = 1;
+                    ProjectsModule.currentStatusFilter = ProjectsModule.currentStatusFilter === 'closed' ? null : 'closed';
+                    ChartsModule.updateActiveCard();
+                    ProjectsModule.renderTable();
+                });
+            }
+
+            // Widget de contactos
+            const contactsToggleBtn = document.getElementById('contacts-toggle-btn');
+            if (contactsToggleBtn) {
+                contactsToggleBtn.addEventListener('click', () => {
+                    const widget = document.getElementById('contacts-widget');
+                    if (widget) {
+                        widget.classList.toggle('visible');
+                        if (widget.classList.contains('visible')) {
+                            ContactsModule.fetchAllContacts();
+                        }
+                    }
+                });
+            }
+
+            // Widget de eventos
+            const eventToggleBtn = document.getElementById('event-toggle-btn');
+            if (eventToggleBtn) {
+                eventToggleBtn.addEventListener('click', () => {
+                    const widget = document.getElementById('event-widget');
+                    if (widget) {
+                        widget.classList.add('visible');
+                    }
+                });
+            }
+
+            // Botones de guardar en modales
+            const saveProjectBtn = document.getElementById('saveProjectBtn');
+            if (saveProjectBtn) {
+                saveProjectBtn.addEventListener('click', ProjectsModule.saveProject);
+            }
+
+            const saveObservacionesBtn = document.getElementById('saveObservacionesBtn');
+            if (saveObservacionesBtn) {
+                saveObservacionesBtn.addEventListener('click', () => ObservacionesModule.saveObservaciones(false));
+            }
+
+            const saveContactBtn = document.getElementById('saveContactBtn');
+            if (saveContactBtn) {
+                saveContactBtn.addEventListener('click', ContactsModule.saveContact);
+            }
+
+            const addContactBtn = document.getElementById('add-contact-btn');
+            if (addContactBtn) {
+                addContactBtn.addEventListener('click', () => ContactsModule.openContactModal());
+            }
+
+            const saveEventBtn = document.getElementById('saveEventBtn');
+            if (saveEventBtn) {
+                saveEventBtn.addEventListener('click', EventsModule.saveEvent);
+            }
+
+            // Botón de editar desde detalles
+            const editFromDetailsBtn = document.getElementById('editFromDetailsBtn');
+            if (editFromDetailsBtn) {
+                editFromDetailsBtn.addEventListener('click', function() {
+                    const projectId = parseFloat(this.dataset.projectId);
+                    if (projectId) {
+                        const detailsModal = bootstrap.Modal.getInstance(document.getElementById('detailsModal'));
+                        if (detailsModal) detailsModal.hide();
+                        setTimeout(() => { 
+                            ProjectsModule.openEditModal(projectId); 
+                        }, 150);
+                    }
+                });
+            }
+
+            // Botón ver detalles desde edición
+            const backToDetailsBtn = document.getElementById('backToDetailsBtn');
+            if (backToDetailsBtn) {
+                backToDetailsBtn.addEventListener('click', function() {
+                    const idField = document.getElementById('field-Id Project');
+                    const projectId = idField ? parseFloat(idField.value) : null;
+                    if (projectId) {
+                        const projectModal = bootstrap.Modal.getInstance(document.getElementById('projectModal'));
+                        if (projectModal) projectModal.hide();
+                        setTimeout(() => { 
+                            ProjectsModule.openDetailsModal(projectId); 
+                        }, 150);
+                    }
+                });
+            }
+
+            // Botón limpiar filtro de mes
+            const clearMonthFilterBtn = document.getElementById('clearMonthFilterBtn');
+            if (clearMonthFilterBtn) {
+                clearMonthFilterBtn.addEventListener('click', ChartsModule.clearMonthFilter);
+            }
+
+            // Generar informe IA
+            const generarInformeLink = document.getElementById('generarInformeIaLink');
+            if (generarInformeLink) {
+                generarInformeLink.addEventListener('click', ChartsModule.generateAIReport);
+            }
+
+            // Búsqueda en observaciones
+            const notepadSearchInput = document.getElementById('notepad-search-input');
+            if (notepadSearchInput) {
+                notepadSearchInput.addEventListener('input', UtilsModule.debounce(ObservacionesModule.performSearch, 300));
+            }
+
+            // Eventos de widget de eventos
+            document.getElementById('next-event-btn')?.addEventListener('click', EventsModule.showNextEvent);
+            document.getElementById('prev-event-btn')?.addEventListener('click', EventsModule.showPreviousEvent);
+            document.getElementById('home-event-btn')?.addEventListener('click', EventsModule.showFirstEvent);
+
+            // Cerrar widgets al hacer clic fuera
+            document.addEventListener('click', (event) => {
+                // Cerrar widget de contactos
+                const contactsWidget = document.getElementById('contacts-widget');
+                const contactsToggleBtn = document.getElementById('contacts-toggle-btn');
+                if (contactsWidget && contactsToggleBtn) {
+                    const isClickInsideWidget = contactsWidget.contains(event.target);
+                    const isClickOnToggleBtn = contactsToggleBtn.contains(event.target);
+                    const isClickInsideModal = event.target.closest('.modal');
+
+                    if (!isClickInsideWidget && !isClickOnToggleBtn && !isClickInsideModal && contactsWidget.classList.contains('visible')) {
+                        contactsWidget.classList.remove('visible');
+                    }
+                }
+
+                // Cerrar widget de eventos
+                const eventWidget = document.getElementById('event-widget');
+                const eventToggleBtn = document.getElementById('event-toggle-btn');
+                if (eventWidget && eventToggleBtn) {
+                    const isClickInsideWidget = eventWidget.contains(event.target);
+                    const isClickOnToggleBtn = eventToggleBtn.contains(event.target);
+                    const isClickInsideModal = event.target.closest('.modal');
+
+                    if (!isClickInsideWidget && !isClickOnToggleBtn && !isClickInsideModal && eventWidget.classList.contains('visible')) {
+                        eventWidget.classList.remove('visible');
+                    }
+                }
+            });
+        }
+
+        // Exponer funciones globalmente para compatibilidad con código existente
+        window.openDetailsModal = ProjectsModule.openDetailsModal;
+        window.openEditModal = ProjectsModule.openEditModal;
+        window.openObservacionesModal = ObservacionesModule.openObservacionesModal;
+    </script>
+</body>
+</html>
