@@ -5,7 +5,7 @@ __pycache__/
 
 # Entornos
 .env
-venv/
+venv_proyecto/
 .env.*
 
 # IDEs
