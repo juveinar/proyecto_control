@@ -299,6 +299,9 @@
         <button type="button" class="btn btn-custom" id="prevProjectBtn">Anterior</button>
         <button type="button" class="btn btn-custom" id="nextProjectBtn">Siguiente</button>
         <button type="button" class="btn btn-custom" id="editFromDetailsBtn">Editar</button>
+        <button type="button" class="btn btn-custom btn-info" id="viewInventoryBtn">
+            <i class="bi bi-server me-1"></i>Ver Inventario
+        </button>
         <button type="button" class="btn btn-custom" data-bs-dismiss="modal">Cerrar</button>
     </div></div></div></div>
 
@@ -608,6 +611,174 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-primary" id="saveContactBtn">Guardar Contacto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Inventario de Equipos -->
+    <div class="modal fade" id="inventoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="inventoryModalLabel">
+                        <i class="bi bi-server me-2"></i>Inventario de Equipos
+                    </h5>
+                    <div class="ms-auto">
+                        <button type="button" class="btn btn-sm text-white p-0 me-2" id="maximizeInventoryBtn" title="Maximizar">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <!-- Botón para agregar nuevo equipo -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Equipos Registrados</h6>
+                        <button type="button" class="btn btn-primary btn-sm" id="addInventoryItemBtn">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar Equipo
+                        </button>
+                    </div>
+
+                    <!-- Formulario para agregar/editar equipo (inicialmente oculto) -->
+                    <div id="inventoryForm" class="card mb-3" style="display: none;">
+                        <div class="card-header">
+                            <h6 class="mb-0" id="inventoryFormTitle">Agregar Nuevo Equipo</h6>
+                        </div>
+                        <div class="card-body">
+                            <form id="inventoryItemForm">
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invUbicacion" class="form-label">Ubicación</label>
+                                        <input type="text" class="form-control form-control-sm" id="invUbicacion">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invOt" class="form-label">OT</label>
+                                        <input type="text" class="form-control form-control-sm" id="invOt">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invCodigo" class="form-label">Código</label>
+                                        <input type="text" class="form-control form-control-sm" id="invCodigo">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invHostname" class="form-label">Hostname</label>
+                                        <input type="text" class="form-control form-control-sm" id="invHostname">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invCpu" class="form-label">CPU</label>
+                                        <input type="text" class="form-control form-control-sm" id="invCpu">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invRam" class="form-label">RAM</label>
+                                        <input type="text" class="form-control form-control-sm" id="invRam">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label for="invDiscoSo" class="form-label">Disco SO</label>
+                                        <input type="text" class="form-control form-control-sm" id="invDiscoSo">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label for="invDiscoPag" class="form-label">Disco Pag</label>
+                                        <input type="text" class="form-control form-control-sm" id="invDiscoPag">
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label for="invDiscoData" class="form-label">Disco Data</label>
+                                        <input type="text" class="form-control form-control-sm" id="invDiscoData">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="invIpGestion" class="form-label">IP Gestión</label>
+                                        <input type="text" class="form-control form-control-sm" id="invIpGestion">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="invIpServicios" class="form-label">IP Servicios</label>
+                                        <input type="text" class="form-control form-control-sm" id="invIpServicios">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="invIpProduccion" class="form-label">IP Producción</label>
+                                        <input type="text" class="form-control form-control-sm" id="invIpProduccion">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="invIpAdicional1" class="form-label">IP Adicional 1</label>
+                                        <input type="text" class="form-control form-control-sm" id="invIpAdicional1">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="invIpAdicional2" class="form-label">IP Adicional 2</label>
+                                        <input type="text" class="form-control form-control-sm" id="invIpAdicional2">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invSistemaOperativo" class="form-label">Sistema Operativo</label>
+                                        <input type="text" class="form-control form-control-sm" id="invSistemaOperativo">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="invTipoEquipo" class="form-label">Tipo Equipo</label>
+                                        <select class="form-select form-select-sm" id="invTipoEquipo">
+                                            <option value="">Seleccionar tipo</option>
+                                            <option value="Maquina Virtual">Maquina Virtual</option>
+                                            <option value="Maquina Fisica">Maquina Fisica</option>
+                                            <option value="Storage">Storage</option>
+                                            <option value="Switch">Switch</option>
+                                            <option value="Enclosure">Enclosure</option>
+                                            <option value="Router">Router</option>
+                                            <option value="Firewall">Firewall</option>
+                                            <option value="WAF">WAF</option>
+                                            <option value="Balanceador">Balanceador</option>
+                                            <option value="Appliance Virtual">Appliance Virtual</option>
+                                            <option value="Appliance Fisico">Appliance Fisico</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-12 mb-2">
+                                        <label for="invReferencia" class="form-label">Referencia</label>
+                                        <input type="text" class="form-control form-control-sm" id="invReferencia">
+                                    </div>
+                                </div>
+                                <input type="hidden" id="invItemId">
+                                <input type="hidden" id="invProyectoId">
+                            </form>
+                        </div>
+                        <div class="card-footer">
+                            <button type="button" class="btn btn-secondary btn-sm" id="cancelInventoryBtn">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="saveInventoryBtn">Guardar Equipo</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="inventoryTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Ubicación</th>
+                                    <th>OT</th>
+                                    <th>Código</th>
+                                    <th>Hostname</th>
+                                    <th>CPU</th>
+                                    <th>RAM</th>
+                                    <th>Disco SO</th>
+                                    <th>Disco Pag</th>
+                                    <th>Disco Data</th>
+                                    <th>IP Gestión</th>
+                                    <th>IP Servicios</th>
+                                    <th>IP Producción</th>
+                                    <th>IP Adicional 1</th>
+                                    <th>IP Adicional 2</th>
+                                    <th>Sistema Operativo</th>
+                                    <th>Tipo Equipo</th>
+                                    <th>Referencia</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryTableBody">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="inventoryEmpty" class="text-center py-4" style="display: none;">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <p class="text-muted">No hay equipos registrados en el inventario para este proyecto.</p>
+                        <button type="button" class="btn btn-primary" id="addFirstInventoryItemBtn">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar Primer Equipo
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>

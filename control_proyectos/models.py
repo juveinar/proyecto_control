@@ -151,6 +151,71 @@ class ProyectoFase(models.Model):
         return f'{self.proyecto} - {self.get_fase_display()}'
 
 
+class ControlProyectosInventario(models.Model):
+    """Modelo para almacenar el inventario de equipos por proyecto"""
+
+    TIPO_EQUIPO_CHOICES = [
+        ('Maquina Virtual', 'Maquina Virtual'),
+        ('Maquina Fisica', 'Maquina Fisica'),
+        ('Storage', 'Storage'),
+        ('Switch', 'Switch'),
+        ('Enclosure', 'Enclosure'),
+        ('Router', 'Router'),
+        ('Firewall', 'Firewall'),
+        ('WAF', 'WAF'),
+        ('Balanceador', 'Balanceador'),
+        ('Appliance Virtual', 'Appliance Virtual'),
+        ('Appliance Fisico', 'Appliance Fisico'),
+    ]
+
+    ubicacion = models.CharField(max_length=255, verbose_name="Ubicación", blank=True, null=True)
+    ot = models.CharField(max_length=100, verbose_name="OT", blank=True, null=True)
+    codigo = models.CharField(max_length=100, verbose_name="Código", blank=True, null=True)
+    hostname = models.CharField(max_length=255, verbose_name="Hostname", blank=True, null=True)
+    cpu = models.CharField(max_length=100, verbose_name="CPU", blank=True, null=True)
+    ram = models.CharField(max_length=100, verbose_name="RAM", blank=True, null=True)
+    disco_so = models.CharField(max_length=100, verbose_name="Disco SO", blank=True, null=True)
+    disco_pag = models.CharField(max_length=100, verbose_name="Disco Paginación", blank=True, null=True)
+    disco_data = models.CharField(max_length=100, verbose_name="Disco Data", blank=True, null=True)
+    ip_gestion = models.CharField(max_length=45, verbose_name="IP Gestión", blank=True, null=True)
+    ip_servicios = models.CharField(max_length=45, verbose_name="IP Servicios", blank=True, null=True)
+    ip_produccion = models.CharField(max_length=45, verbose_name="IP Producción", blank=True, null=True)
+    ip_adicional_1 = models.CharField(max_length=45, verbose_name="IP Adicional 1", blank=True, null=True)
+    ip_adicional_2 = models.CharField(max_length=45, verbose_name="IP Adicional 2", blank=True, null=True)
+    sistema_operativo = models.CharField(max_length=255, verbose_name="Sistema Operativo", blank=True, null=True)
+    tipo_equipo = models.CharField(
+        max_length=50,
+        choices=TIPO_EQUIPO_CHOICES,
+        verbose_name="Tipo de Equipo",
+        blank=True,
+        null=True
+    )
+    referencia = models.CharField(max_length=255, verbose_name="Referencia", blank=True, null=True)
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        verbose_name="Proyecto",
+        related_name='inventario_equipos'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
+
+    class Meta:
+        verbose_name = "Inventario de Equipo"
+        verbose_name_plural = "Inventario de Equipos"
+        ordering = ['hostname', 'tipo_equipo']
+        db_table = 'control_proyectos_inventario'
+        indexes = [
+            models.Index(fields=['proyecto', 'tipo_equipo']),
+            models.Index(fields=['hostname']),
+            models.Index(fields=['codigo']),
+        ]
+
+    def __str__(self):
+        return f"{self.hostname or self.codigo} - {self.proyecto.project}"
+
+
 class Contacto(models.Model):
     """Modelo para almacenar contactos de la libreta."""
     nombre = models.CharField(max_length=255, verbose_name="Nombre")

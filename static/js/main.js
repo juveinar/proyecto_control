@@ -1096,11 +1096,69 @@ const detailColumns = [
             }, { once: true });
         };
 
-        // Abre el modal de edición para un proyecto específico.
-        window.openEditModal = (projectId) => {
-            const project = allProjects.find(p => p['Id Project'] === projectId);
-            setupModalForm(project);
-            projectModal.show();
+        // Abre el modal de inventario para un proyecto específico.
+        window.openInventoryModal = async (projectId) => {
+            console.log('=== OPEN INVENTORY MODAL ===');
+            console.log('Project ID:', projectId);
+
+            try {
+                // Obtener información del proyecto para el título
+                const project = allProjects.find(p => p['Id Project'] === projectId);
+                const projectName = project ? project.Project : `Proyecto ${projectId}`;
+
+                // Actualizar título del modal con el nombre del proyecto
+                const modalLabel = document.getElementById('inventoryModalLabel');
+                modalLabel.innerHTML = `<i class="bi bi-server me-2"></i>Inventario de Equipos - ${projectName}`;
+
+                console.log('Haciendo fetch a /api/inventario?proyecto_id=' + projectId);
+                const response = await fetch(`/api/inventario?proyecto_id=${projectId}`);
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    console.error('Response no ok:', response.status);
+                    throw new Error('Error al cargar inventario');
+                }
+
+                const inventario = await response.json();
+                console.log('Inventario recibido:', inventario);
+
+                const inventoryTableBody = document.getElementById('inventoryTableBody');
+                const inventoryEmpty = document.getElementById('inventoryEmpty');
+                const inventoryTable = document.getElementById('inventoryTable');
+                const inventoryForm = document.getElementById('inventoryForm');
+
+                // Ocultar formulario al abrir
+                inventoryForm.style.display = 'none';
+
+                console.log('Elementos DOM encontrados:', {
+                    inventoryTableBody: !!inventoryTableBody,
+                    inventoryEmpty: !!inventoryEmpty,
+                    inventoryTable: !!inventoryTable
+                });
+
+                if (inventario.length === 0) {
+                    console.log('Inventario vacío, mostrando mensaje vacío');
+                    inventoryTable.style.display = 'none';
+                    inventoryEmpty.style.display = 'block';
+                } else {
+                    console.log('Inventario con datos, mostrando tabla');
+                    inventoryTable.style.display = 'table';
+                    inventoryEmpty.style.display = 'none';
+
+                    renderInventoryTable(inventario);
+                }
+
+                // Guardar el projectId actual para usarlo en el formulario
+                document.getElementById('invProyectoId').value = projectId;
+
+                console.log('Mostrando modal de inventario');
+                const inventoryModal = new bootstrap.Modal(document.getElementById('inventoryModal'));
+                inventoryModal.show();
+
+            } catch (error) {
+                console.error('Error al cargar inventario:', error);
+                alert('Error al cargar el inventario del proyecto: ' + error.message);
+            }
         };
 
         // Botón para agregar un nuevo proyecto.
@@ -1115,6 +1173,21 @@ const detailColumns = [
             if (projectId) {
                 detailsModal.hide();
                 setTimeout(() => { openEditModal(projectId); }, 150);
+            }
+        });
+
+        // Botón "Ver Inventario" dentro del modal de detalles.
+        document.getElementById('viewInventoryBtn').addEventListener('click', function() {
+            console.log('Botón Ver Inventario clickeado');
+            console.log('currentDetailProjectId:', currentDetailProjectId);
+            const projectId = parseFloat(currentDetailProjectId);
+            console.log('projectId parsed:', projectId);
+            if (projectId) {
+                console.log('Llamando a openInventoryModal con projectId:', projectId);
+                window.openInventoryModal(projectId);
+            } else {
+                console.error('No hay projectId válido');
+                alert('Error: No se pudo identificar el proyecto actual');
             }
         });
 
@@ -2860,6 +2933,284 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             // Remove toast element after it's hidden
             toastEl.addEventListener('hidden.bs.toast', () => {
                 toastEl.remove();
+            });
+        }
+
+        // Funciones para el manejo del inventario
+        function renderInventoryTable(inventario) {
+            const inventoryTableBody = document.getElementById('inventoryTableBody');
+            inventoryTableBody.innerHTML = '';
+
+            inventario.forEach((item, index) => {
+                console.log(`Procesando item ${index}:`, item);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.ubicacion || ''}</td>
+                    <td>${item.ot || ''}</td>
+                    <td>${item.codigo || ''}</td>
+                    <td>${item.hostname || ''}</td>
+                    <td>${item.cpu || ''}</td>
+                    <td>${item.ram || ''}</td>
+                    <td>${item.disco_so || ''}</td>
+                    <td>${item.disco_pag || ''}</td>
+                    <td>${item.disco_data || ''}</td>
+                    <td>${item.ip_gestion || ''}</td>
+                    <td>${item.ip_servicios || ''}</td>
+                    <td>${item.ip_produccion || ''}</td>
+                    <td>${item.ip_adicional_1 || ''}</td>
+                    <td>${item.ip_adicional_2 || ''}</td>
+                    <td>${item.sistema_operativo || ''}</td>
+                    <td>${item.tipo_equipo || ''}</td>
+                    <td>${item.referencia || ''}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-primary edit-inventory-btn" data-item-id="${item.id}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger delete-inventory-btn" data-item-id="${item.id}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                inventoryTableBody.appendChild(row);
+            });
+
+            // Agregar event listeners para los botones de editar y eliminar
+            document.querySelectorAll('.edit-inventory-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    editInventoryItem(this.dataset.itemId);
+                });
+            });
+
+            document.querySelectorAll('.delete-inventory-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    deleteInventoryItem(this.dataset.itemId);
+                });
+            });
+        }
+
+        function showInventoryForm(item = null) {
+            const inventoryForm = document.getElementById('inventoryForm');
+            const inventoryTable = document.getElementById('inventoryTable');
+            const inventoryEmpty = document.getElementById('inventoryEmpty');
+            const formTitle = document.getElementById('inventoryFormTitle');
+
+            // Mostrar formulario, ocultar tabla y mensaje vacío
+            inventoryForm.style.display = 'block';
+            inventoryTable.style.display = 'none';
+            inventoryEmpty.style.display = 'none';
+
+            if (item) {
+                // Modo edición
+                formTitle.textContent = 'Editar Equipo';
+                document.getElementById('invItemId').value = item.id;
+                document.getElementById('invUbicacion').value = item.ubicacion || '';
+                document.getElementById('invOt').value = item.ot || '';
+                document.getElementById('invCodigo').value = item.codigo || '';
+                document.getElementById('invHostname').value = item.hostname || '';
+                document.getElementById('invCpu').value = item.cpu || '';
+                document.getElementById('invRam').value = item.ram || '';
+                document.getElementById('invDiscoSo').value = item.disco_so || '';
+                document.getElementById('invDiscoPag').value = item.disco_pag || '';
+                document.getElementById('invDiscoData').value = item.disco_data || '';
+                document.getElementById('invIpGestion').value = item.ip_gestion || '';
+                document.getElementById('invIpServicios').value = item.ip_servicios || '';
+                document.getElementById('invIpProduccion').value = item.ip_produccion || '';
+                document.getElementById('invIpAdicional1').value = item.ip_adicional_1 || '';
+                document.getElementById('invIpAdicional2').value = item.ip_adicional_2 || '';
+                document.getElementById('invSistemaOperativo').value = item.sistema_operativo || '';
+                document.getElementById('invTipoEquipo').value = item.tipo_equipo || '';
+                document.getElementById('invReferencia').value = item.referencia || '';
+            } else {
+                // Modo agregar
+                formTitle.textContent = 'Agregar Nuevo Equipo';
+                document.getElementById('inventoryItemForm').reset();
+                document.getElementById('invItemId').value = '';
+            }
+        }
+
+        function hideInventoryForm() {
+            const inventoryForm = document.getElementById('inventoryForm');
+            inventoryForm.style.display = 'none';
+
+            // Recargar inventario para mostrar la tabla actualizada
+            const projectId = document.getElementById('invProyectoId').value;
+            if (projectId) {
+                loadInventoryData(projectId);
+            }
+        }
+
+        async function loadInventoryData(projectId) {
+            try {
+                const response = await fetch(`/api/inventario?proyecto_id=${projectId}`);
+                if (!response.ok) throw new Error('Error al cargar inventario');
+
+                const inventario = await response.json();
+                const inventoryTableBody = document.getElementById('inventoryTableBody');
+                const inventoryEmpty = document.getElementById('inventoryEmpty');
+                const inventoryTable = document.getElementById('inventoryTable');
+
+                if (inventario.length === 0) {
+                    inventoryTable.style.display = 'none';
+                    inventoryEmpty.style.display = 'block';
+                } else {
+                    inventoryTable.style.display = 'table';
+                    inventoryEmpty.style.display = 'none';
+                    renderInventoryTable(inventario);
+                }
+            } catch (error) {
+                console.error('Error al cargar inventario:', error);
+                alert('Error al cargar el inventario: ' + error.message);
+            }
+        }
+
+        async function saveInventoryItem() {
+            const projectId = document.getElementById('invProyectoId').value;
+            const itemId = document.getElementById('invItemId').value;
+
+            const data = {
+                proyecto_id: projectId,
+                ubicacion: document.getElementById('invUbicacion').value,
+                ot: document.getElementById('invOt').value,
+                codigo: document.getElementById('invCodigo').value,
+                hostname: document.getElementById('invHostname').value,
+                cpu: document.getElementById('invCpu').value,
+                ram: document.getElementById('invRam').value,
+                disco_so: document.getElementById('invDiscoSo').value,
+                disco_pag: document.getElementById('invDiscoPag').value,
+                disco_data: document.getElementById('invDiscoData').value,
+                ip_gestion: document.getElementById('invIpGestion').value,
+                ip_servicios: document.getElementById('invIpServicios').value,
+                ip_produccion: document.getElementById('invIpProduccion').value,
+                ip_adicional_1: document.getElementById('invIpAdicional1').value,
+                ip_adicional_2: document.getElementById('invIpAdicional2').value,
+                sistema_operativo: document.getElementById('invSistemaOperativo').value,
+                tipo_equipo: document.getElementById('invTipoEquipo').value,
+                referencia: document.getElementById('invReferencia').value,
+            };
+
+            try {
+                let response;
+                if (itemId) {
+                    // Modo edición
+                    response = await fetch(`/api/inventario/${itemId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    // Modo agregar
+                    response = await fetch('/api/inventario', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al guardar el equipo');
+                }
+
+                hideInventoryForm();
+                alert('Equipo guardado exitosamente');
+
+            } catch (error) {
+                console.error('Error al guardar equipo:', error);
+                alert('Error al guardar el equipo: ' + error.message);
+            }
+        }
+
+        async function editInventoryItem(itemId) {
+            try {
+                const response = await fetch(`/api/inventario/${itemId}`);
+                if (!response.ok) throw new Error('Error al cargar el equipo');
+
+                const item = await response.json();
+                showInventoryForm(item);
+
+            } catch (error) {
+                console.error('Error al cargar equipo para editar:', error);
+                alert('Error al cargar el equipo: ' + error.message);
+            }
+        }
+
+        async function deleteInventoryItem(itemId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este equipo?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/inventario/${itemId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al eliminar el equipo');
+                }
+
+                // Recargar la tabla
+                const projectId = document.getElementById('invProyectoId').value;
+                loadInventoryData(projectId);
+                alert('Equipo eliminado exitosamente');
+
+            } catch (error) {
+                console.error('Error al eliminar equipo:', error);
+                alert('Error al eliminar el equipo: ' + error.message);
+            }
+        }
+
+        // Event listeners para el formulario de inventario
+        document.getElementById('addInventoryItemBtn').addEventListener('click', () => {
+            showInventoryForm();
+        });
+
+        document.getElementById('addFirstInventoryItemBtn').addEventListener('click', () => {
+            showInventoryForm();
+        });
+
+        document.getElementById('cancelInventoryBtn').addEventListener('click', () => {
+            hideInventoryForm();
+        });
+
+        document.getElementById('saveInventoryBtn').addEventListener('click', () => {
+            saveInventoryItem();
+        });
+
+        // Botón para maximizar/restaurar el modal de inventario
+        const maximizeInventoryBtn = document.getElementById('maximizeInventoryBtn');
+        if (maximizeInventoryBtn) {
+            maximizeInventoryBtn.addEventListener('click', () => {
+                const inventoryModalEl = document.getElementById('inventoryModal');
+                const modalDialog = inventoryModalEl.querySelector('.modal-dialog');
+                const icon = maximizeInventoryBtn.querySelector('i');
+
+                modalDialog.classList.toggle('modal-fullscreen');
+
+                if (modalDialog.classList.contains('modal-fullscreen')) {
+                    // Cambiar ícono a restaurar
+                    icon.className = 'bi bi-arrows-angle-contract';
+                    maximizeInventoryBtn.title = 'Restaurar';
+
+                    // Limpiar estilos de arrastre para que ocupe toda la pantalla correctamente
+                    modalDialog.style.top = '';
+                    modalDialog.style.left = '';
+                    modalDialog.style.position = '';
+                    modalDialog.style.margin = '';
+                } else {
+                    // Cambiar ícono a maximizar
+                    icon.className = 'bi bi-arrows-fullscreen';
+                    maximizeInventoryBtn.title = 'Maximizar';
+                }
             });
         }
 

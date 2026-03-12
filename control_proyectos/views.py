@@ -12,7 +12,7 @@ import json
 import time
 import os
 from django.conf import settings
-from .models import Proyecto, Evento, ProyectoFase, Contacto
+from .models import Proyecto, Evento, ProyectoFase, Contacto, ControlProyectosInventario
 
 @require_http_methods(["GET", "POST"])
 def login_view(request):
@@ -797,6 +797,193 @@ def api_contacts_simple(request):
             'telefono': c.telefono,
         })
     return JsonResponse(contactos_list, safe=False)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_inventario(request):
+    """Obtener inventario de equipos de un proyecto o crear uno nuevo."""
+    if request.method == 'GET':
+        proyecto_id = request.GET.get('proyecto_id')
+        if not proyecto_id:
+            return JsonResponse({'error': 'Se requiere proyecto_id'}, status=400)
+
+        try:
+            proyecto = Proyecto.objects.get(id_project=proyecto_id)
+            inventario = ControlProyectosInventario.objects.filter(proyecto=proyecto).order_by('hostname', 'tipo_equipo')
+            inventario_list = []
+            for item in inventario:
+                inventario_list.append({
+                    'id': item.id,
+                    'ubicacion': item.ubicacion,
+                    'ot': item.ot,
+                    'codigo': item.codigo,
+                    'hostname': item.hostname,
+                    'cpu': item.cpu,
+                    'ram': item.ram,
+                    'disco_so': item.disco_so,
+                    'disco_pag': item.disco_pag,
+                    'disco_data': item.disco_data,
+                    'ip_gestion': item.ip_gestion,
+                    'ip_servicios': item.ip_servicios,
+                    'ip_produccion': item.ip_produccion,
+                    'ip_adicional_1': item.ip_adicional_1,
+                    'ip_adicional_2': item.ip_adicional_2,
+                    'sistema_operativo': item.sistema_operativo,
+                    'tipo_equipo': item.tipo_equipo,
+                    'referencia': item.referencia,
+                    'proyecto_id': item.proyecto.id_project,
+                })
+            return JsonResponse(inventario_list, safe=False)
+        except Proyecto.DoesNotExist:
+            return JsonResponse({'error': 'Proyecto no encontrado'}, status=404)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            proyecto_id = data.get('proyecto_id')
+
+            if not proyecto_id:
+                return JsonResponse({'error': 'Se requiere proyecto_id'}, status=400)
+
+            try:
+                proyecto = Proyecto.objects.get(id_project=proyecto_id)
+            except Proyecto.DoesNotExist:
+                return JsonResponse({'error': 'Proyecto no encontrado'}, status=404)
+
+            inventario_item = ControlProyectosInventario.objects.create(
+                ubicacion=data.get('ubicacion'),
+                ot=data.get('ot'),
+                codigo=data.get('codigo'),
+                hostname=data.get('hostname'),
+                cpu=data.get('cpu'),
+                ram=data.get('ram'),
+                disco_so=data.get('disco_so'),
+                disco_pag=data.get('disco_pag'),
+                disco_data=data.get('disco_data'),
+                ip_gestion=data.get('ip_gestion'),
+                ip_servicios=data.get('ip_servicios'),
+                ip_produccion=data.get('ip_produccion'),
+                ip_adicional_1=data.get('ip_adicional_1'),
+                ip_adicional_2=data.get('ip_adicional_2'),
+                sistema_operativo=data.get('sistema_operativo'),
+                tipo_equipo=data.get('tipo_equipo'),
+                referencia=data.get('referencia'),
+                proyecto=proyecto,
+            )
+
+            return JsonResponse({
+                'id': inventario_item.id,
+                'ubicacion': inventario_item.ubicacion,
+                'ot': inventario_item.ot,
+                'codigo': inventario_item.codigo,
+                'hostname': inventario_item.hostname,
+                'cpu': inventario_item.cpu,
+                'ram': inventario_item.ram,
+                'disco_so': inventario_item.disco_so,
+                'disco_pag': inventario_item.disco_pag,
+                'disco_data': inventario_item.disco_data,
+                'ip_gestion': inventario_item.ip_gestion,
+                'ip_servicios': inventario_item.ip_servicios,
+                'ip_produccion': inventario_item.ip_produccion,
+                'ip_adicional_1': inventario_item.ip_adicional_1,
+                'ip_adicional_2': inventario_item.ip_adicional_2,
+                'sistema_operativo': inventario_item.sistema_operativo,
+                'tipo_equipo': inventario_item.tipo_equipo,
+                'referencia': inventario_item.referencia,
+                'proyecto_id': inventario_item.proyecto.id_project,
+            })
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'JSON inválido'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET", "PUT", "DELETE"])
+def api_inventario_detail(request, pk):
+    """Obtener, actualizar o eliminar un item del inventario."""
+    try:
+        item = ControlProyectosInventario.objects.get(pk=pk)
+    except ControlProyectosInventario.DoesNotExist:
+        return JsonResponse({'error': 'Item no encontrado'}, status=404)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'id': item.id,
+            'ubicacion': item.ubicacion,
+            'ot': item.ot,
+            'codigo': item.codigo,
+            'hostname': item.hostname,
+            'cpu': item.cpu,
+            'ram': item.ram,
+            'disco_so': item.disco_so,
+            'disco_pag': item.disco_pag,
+            'disco_data': item.disco_data,
+            'ip_gestion': item.ip_gestion,
+            'ip_servicios': item.ip_servicios,
+            'ip_produccion': item.ip_produccion,
+            'ip_adicional_1': item.ip_adicional_1,
+            'ip_adicional_2': item.ip_adicional_2,
+            'sistema_operativo': item.sistema_operativo,
+            'tipo_equipo': item.tipo_equipo,
+            'referencia': item.referencia,
+            'proyecto_id': item.proyecto.id_project,
+        })
+
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+
+            item.ubicacion = data.get('ubicacion', item.ubicacion)
+            item.ot = data.get('ot', item.ot)
+            item.codigo = data.get('codigo', item.codigo)
+            item.hostname = data.get('hostname', item.hostname)
+            item.cpu = data.get('cpu', item.cpu)
+            item.ram = data.get('ram', item.ram)
+            item.disco_so = data.get('disco_so', item.disco_so)
+            item.disco_pag = data.get('disco_pag', item.disco_pag)
+            item.disco_data = data.get('disco_data', item.disco_data)
+            item.ip_gestion = data.get('ip_gestion', item.ip_gestion)
+            item.ip_servicios = data.get('ip_servicios', item.ip_servicios)
+            item.ip_produccion = data.get('ip_produccion', item.ip_produccion)
+            item.ip_adicional_1 = data.get('ip_adicional_1', item.ip_adicional_1)
+            item.ip_adicional_2 = data.get('ip_adicional_2', item.ip_adicional_2)
+            item.sistema_operativo = data.get('sistema_operativo', item.sistema_operativo)
+            item.tipo_equipo = data.get('tipo_equipo', item.tipo_equipo)
+            item.referencia = data.get('referencia', item.referencia)
+
+            item.save()
+
+            return JsonResponse({
+                'id': item.id,
+                'ubicacion': item.ubicacion,
+                'ot': item.ot,
+                'codigo': item.codigo,
+                'hostname': item.hostname,
+                'cpu': item.cpu,
+                'ram': item.ram,
+                'disco_so': item.disco_so,
+                'disco_pag': item.disco_pag,
+                'disco_data': item.disco_data,
+                'ip_gestion': item.ip_gestion,
+                'ip_servicios': item.ip_servicios,
+                'ip_produccion': item.ip_produccion,
+                'ip_adicional_1': item.ip_adicional_1,
+                'ip_adicional_2': item.ip_adicional_2,
+                'sistema_operativo': item.sistema_operativo,
+                'tipo_equipo': item.tipo_equipo,
+                'referencia': item.referencia,
+                'proyecto_id': item.proyecto.id_project,
+            })
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'JSON inválido'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == 'DELETE':
+        item.delete()
+        return JsonResponse({'success': True})
 
 
 @login_required
