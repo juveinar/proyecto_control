@@ -817,7 +817,7 @@ const detailColumns = [
 
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
-                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
+                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
 
@@ -859,6 +859,15 @@ const detailColumns = [
                         // Fetch contact info asynchronously
                         console.log('Calling fetchContactInfo for project:', project['Id Project']);
                         fetchContactInfo(project['Id Project']);
+                    } else if (col === 'INVENTARIO') {
+                        // Special handling for INVENTARIO field - always render
+                        detailsHtml += `
+                            <div class="col-md-6 mb-2">
+                                <span class="detail-label">${col.toUpperCase()}:</span>
+                                <button class="btn-ai-note" onclick="window.openInventoryModal(${project['Id Project']})" title="Ver Inventario de Equipos">
+                                    <i class="bi bi-server"></i>
+                                </button>
+                            </div>`;
                     } else if (project.hasOwnProperty(dataKey)) {
                         if (col === 'Computo') {
                             const computoValue = project[col] ?? '';
@@ -1173,21 +1182,6 @@ const detailColumns = [
             if (projectId) {
                 detailsModal.hide();
                 setTimeout(() => { openEditModal(projectId); }, 150);
-            }
-        });
-
-        // Botón "Ver Inventario" dentro del modal de detalles.
-        document.getElementById('viewInventoryBtn').addEventListener('click', function() {
-            console.log('Botón Ver Inventario clickeado');
-            console.log('currentDetailProjectId:', currentDetailProjectId);
-            const projectId = parseFloat(currentDetailProjectId);
-            console.log('projectId parsed:', projectId);
-            if (projectId) {
-                console.log('Llamando a openInventoryModal con projectId:', projectId);
-                window.openInventoryModal(projectId);
-            } else {
-                console.error('No hay projectId válido');
-                alert('Error: No se pudo identificar el proyecto actual');
             }
         });
 
@@ -3169,6 +3163,72 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             }
         }
 
+        async function exportInventoryToExcel() {
+            const projectId = document.getElementById('invProyectoId').value;
+
+            if (!projectId) {
+                alert('Error: No se pudo identificar el proyecto actual');
+                return;
+            }
+
+            try {
+                // Obtener datos del inventario
+                const response = await fetch(`/api/inventario?proyecto_id=${projectId}`);
+                if (!response.ok) throw new Error('Error al cargar inventario');
+
+                const inventario = await response.json();
+
+                if (inventario.length === 0) {
+                    alert('No hay equipos para exportar');
+                    return;
+                }
+
+                // Obtener nombre del proyecto
+                const project = allProjects.find(p => p['Id Project'] === parseInt(projectId));
+                const projectName = project ? project.Project : `Proyecto_${projectId}`;
+
+                // Preparar datos para Excel
+                const excelData = inventario.map(item => ({
+                    'Ubicación': item.ubicacion || '',
+                    'OT': item.ot || '',
+                    'Código': item.codigo || '',
+                    'Hostname': item.hostname || '',
+                    'CPU': item.cpu || '',
+                    'RAM': item.ram || '',
+                    'Disco SO': item.disco_so || '',
+                    'Disco Pag': item.disco_pag || '',
+                    'Disco Data': item.disco_data || '',
+                    'IP Gestión': item.ip_gestion || '',
+                    'IP Servicios': item.ip_servicios || '',
+                    'IP Producción': item.ip_produccion || '',
+                    'IP Adicional 1': item.ip_adicional_1 || '',
+                    'IP Adicional 2': item.ip_adicional_2 || '',
+                    'Sistema Operativo': item.sistema_operativo || '',
+                    'Tipo Equipo': item.tipo_equipo || '',
+                    'Referencia': item.referencia || ''
+                }));
+
+                // Crear worksheet
+                const ws = XLSX.utils.json_to_sheet(excelData);
+
+                // Crear workbook
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+
+                // Generar nombre de archivo
+                const fileName = `Inventario_${projectName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+                // Descargar archivo
+                XLSX.writeFile(wb, fileName);
+
+                console.log('Archivo Excel exportado:', fileName);
+
+            } catch (error) {
+                console.error('Error al exportar a Excel:', error);
+                alert('Error al exportar a Excel: ' + error.message);
+            }
+        }
+
         // Event listeners para el formulario de inventario
         document.getElementById('addInventoryItemBtn').addEventListener('click', () => {
             showInventoryForm();
@@ -3184,6 +3244,11 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
 
         document.getElementById('saveInventoryBtn').addEventListener('click', () => {
             saveInventoryItem();
+        });
+
+        // Botón para exportar a Excel
+        document.getElementById('exportInventoryBtn').addEventListener('click', () => {
+            exportInventoryToExcel();
         });
 
         // Botón para maximizar/restaurar el modal de inventario
