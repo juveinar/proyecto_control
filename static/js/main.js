@@ -26,10 +26,16 @@ const csrftoken = getCookie('csrftoken');
  */
 document.addEventListener('DOMContentLoaded', function () {
 
-    /**
-     * Función que permite que un modal de Bootstrap sea arrastrable por su cabecera.
-     * @param {HTMLElement} modalElement - El elemento del DOM que representa al modal.
-     */
+    // Función helper para agregar event listeners de forma segura
+    function addEventListenerSafely(elementId, event, handler) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.addEventListener(event, handler);
+        }
+    }
+
+    // Función que permite que un modal de Bootstrap sea arrastrable por su cabecera.
+    // @param {HTMLElement} modalElement - El elemento del DOM que representa al modal.
     function makeModalDraggable(modalElement) {
         const modalDialog = modalElement.querySelector('.modal-dialog');
         const modalHeader = modalElement.querySelector('.modal-header');
@@ -105,10 +111,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const pendientesTableBody = document.getElementById('pendientes-table-body');
         const projectModalEl = document.getElementById('projectModal');
         const detailsModalEl = document.getElementById('detailsModal');
-        const projectModal = new bootstrap.Modal(projectModalEl);
-        const detailsModal = new bootstrap.Modal(detailsModalEl);
         const observacionesModalEl = document.getElementById('observacionesModal');
-        const observacionesModal = new bootstrap.Modal(observacionesModalEl);
+
+        // Solo inicializar modales si existen en la página
+        const projectModal = projectModalEl ? new bootstrap.Modal(projectModalEl) : null;
+        const detailsModal = detailsModalEl ? new bootstrap.Modal(detailsModalEl) : null;
+        const observacionesModal = observacionesModalEl ? new bootstrap.Modal(observacionesModalEl) : null;
 
         // Elementos de la barra de búsqueda del bloc de notas
         const notepadSearchBar = document.getElementById('notepad-search-bar');
@@ -117,9 +125,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const notepadMatchCounter = document.getElementById('notepad-match-counter');
         const notepadTextarea = document.getElementById('observacionesContent');
 
-        makeModalDraggable(projectModalEl);
-        makeModalDraggable(detailsModalEl);
-        makeModalDraggable(observacionesModalEl);
+        // Solo hacer modales arrastrables si existen
+        if (projectModalEl) makeModalDraggable(projectModalEl);
+        if (detailsModalEl) makeModalDraggable(detailsModalEl);
+        if (observacionesModalEl) makeModalDraggable(observacionesModalEl);
 
         // Elementos de la interfaz de usuario para filtros y búsqueda
         const yearSelector = document.getElementById('year-selector');
@@ -235,13 +244,15 @@ const detailColumns = [
                     }
                     // Llena el selector de años y renderiza el gráfico con el año actual
                     populateYearSelector();
-                    renderChart(yearSelector.value);
+                    renderChart(yearSelector ? yearSelector.value : null);
                 }
                 // Renderiza la tabla de proyectos
                 renderTable();
             } catch (error) {
                 console.error("Error fetching projects:", error);
-                tableBody.innerHTML = `<tr><td colspan="${visibleColumns.length + 1}" class="text-center text-danger">Error al cargar los proyectos. Revisa la consola del navegador (F12) para más detalles.</td></tr>`;
+                if (tableBody) {
+                    tableBody.innerHTML = `<tr><td colspan="${visibleColumns.length + 1}" class="text-center text-danger">Error al cargar los proyectos. Revisa la consola del navegador (F12) para más detalles.</td></tr>`;
+                }
             }
         }
 
@@ -249,7 +260,7 @@ const detailColumns = [
         // Menú contextual rápido para cambiar estado (click derecho)
         // ========================
         // Crear contenedor del menú si no existe
-        let quickStatusMenu = document.getElementById('quick-status-menu');
+        let quickStatusMenu = addEventListenerSafely('quick-status-menu');
         if (!quickStatusMenu) {
             quickStatusMenu = document.createElement('div');
             quickStatusMenu.id = 'quick-status-menu';
@@ -309,14 +320,17 @@ const detailColumns = [
             }
         };
 
-        pendientesTableBody.addEventListener('contextmenu', function (e) {
-            const resolved = resolvePendienteTarget(e.target);
-            if (!resolved) return; // no es una celda objetivo
-            showQuickMenu(e, e.target);
-        });
+        if (pendientesTableBody) {
+            pendientesTableBody.addEventListener('contextmenu', function (e) {
+                const resolved = resolvePendienteTarget(e.target);
+                if (!resolved) return; // no es una celda objetivo
+                showQuickMenu(e, e.target);
+            });
+        }
 
         // Usar PointerEvent para manejar clicks (evita APIs obsoletas como mozInputSource)
-        pendientesTableBody.addEventListener('pointerdown', function (e) {
+        if (pendientesTableBody) {
+            pendientesTableBody.addEventListener('pointerdown', function (e) {
             try {
                 // e.button === 0 -> izquierdo, 2 -> derecho
                 const resolved = resolvePendienteTarget(e.target);
@@ -333,6 +347,7 @@ const detailColumns = [
                 console.warn('pointerdown handler error', err);
             }
         });
+        }
 
         // Manejar la selección de un nuevo estado desde el menú
         quickStatusMenu.addEventListener('click', async function (e) {
@@ -342,7 +357,7 @@ const detailColumns = [
             const projectId = lastContextTarget.dataset.projectId;
             const fieldName = lastContextTarget.dataset.field;
             if (!projectId || !fieldName) {
-                alert('No se pudo identificar el proyecto o el campo.');
+                showNotification('No se pudo identificar el proyecto o el campo.', 'error');
                 quickStatusMenu.style.display = 'none';
                 return;
             }
@@ -365,7 +380,7 @@ const detailColumns = [
                 displayAllPendientes();
             } catch (err) {
                 console.error('Error actualizando estado rápido:', err);
-                alert('Error al actualizar estado: ' + err.message);
+                showNotification('Error al actualizar estado: ' + err.message, 'error');
             } finally {
                 quickStatusMenu.style.display = 'none';
                 lastContextTarget = null;
@@ -388,6 +403,12 @@ const detailColumns = [
          * datos de los proyectos.
          */
         function populateYearSelector() {
+            // Salir temprano si yearSelector no existe
+            if (!yearSelector) {
+                console.warn('yearSelector element not found, skipping populateYearSelector');
+                return;
+            }
+
             // Guardar el valor seleccionado actualmente para restaurarlo si es posible
             const currentSelection = yearSelector.value;
 
@@ -420,11 +441,13 @@ const detailColumns = [
                 const url = year ? `/api/projects/stats?year=${year}` : '/api/projects/stats';
                 const response = await fetch(url);
                 const stats = await response.json();
-                const ctx = document.getElementById('projectsChart').getContext('2d');
-                if (projectsChart) { projectsChart.destroy(); }
+                const ctx = document.getElementById('projectsChart');
+                if (ctx) {
+                    const context = ctx.getContext('2d');
+                    if (projectsChart) { projectsChart.destroy(); }
 
                 // Crea un gradiente de color para las barras del gráfico
-                const gradient = ctx.createLinearGradient(0, ctx.canvas.height, 0, 0);
+                const gradient = context.createLinearGradient(0, ctx.height, 0, 0);
                 gradient.addColorStop(0, 'rgba(88, 86, 214, 0.8)');
                 gradient.addColorStop(0.25, 'rgba(0, 212, 255, 0.8)');
                 gradient.addColorStop(0.5, 'rgba(0, 255, 196, 0.8)');
@@ -472,7 +495,8 @@ const detailColumns = [
                                 // Filtra la tabla por el mes seleccionado y muestra el botón para limpiar el filtro
                                 selectedMonth = monthIndex + 1; // Enero es 1, Febrero 2, etc.
                                 renderTable();
-                                document.getElementById('clearMonthFilterBtn').style.display = 'inline-block';
+                                const clearBtn = document.getElementById('clearMonthFilterBtn');
+                                if (clearBtn) clearBtn.style.display = 'inline-block';
                             }
                         },
                         plugins: {
@@ -495,6 +519,7 @@ const detailColumns = [
                         }
                     }
                 });
+                }
             } catch (error) {
                 console.error("Error rendering chart:", error);
             }
@@ -521,11 +546,15 @@ const detailColumns = [
          * gestiona la paginación y actualiza los contadores de proyectos.
          */
         function renderTable() {
-            tableBody.innerHTML = '';
+            if (tableBody) {
+                tableBody.innerHTML = '';
+            } else {
+                return; // No se puede renderizar si tableBody no existe
+            }
 
             // Obtiene los valores actuales de los filtros
-            const selectedYear = parseInt(yearSelector.value, 10);
-            const searchTerm = searchInput.value.toLowerCase();
+            const selectedYear = yearSelector ? parseInt(yearSelector.value, 10) : null;
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
 
             let projectsToDisplay = [...allProjects];
 
@@ -543,12 +572,19 @@ const detailColumns = [
             const finishedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'finalizado').length;
             const notFinishedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'en curso').length;
             const closedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'cerrado').length;
-            document.getElementById('finished-count').textContent = finishedCount;
-            document.getElementById('not-finished-count').textContent = notFinishedCount;
-            document.getElementById('closed-count').textContent = closedCount;
+
+            const finishedCountEl = document.getElementById('finished-count');
+            const notFinishedCountEl = document.getElementById('not-finished-count');
+            const closedCountEl = document.getElementById('closed-count');
+
+            if (finishedCountEl) finishedCountEl.textContent = finishedCount;
+            if (notFinishedCountEl) notFinishedCountEl.textContent = notFinishedCount;
+            if (closedCountEl) closedCountEl.textContent = closedCount;
 
             // Sincronizar el estado del checkbox con el filtro actual
-            notFinishedFilterSwitch.checked = currentStatusFilter === 'not-finished';
+            if (notFinishedFilterSwitch) {
+                notFinishedFilterSwitch.checked = currentStatusFilter === 'not-finished';
+            }
 
             // Aplica filtro de "No Finalizados" (solo estado "En Curso")
             if (currentStatusFilter === 'not-finished') {
@@ -590,7 +626,9 @@ const detailColumns = [
             currentVisibleProjectIds = projectsToDisplay.map(p => p['Id Project']);
 
             if (paginatedProjects.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="${visibleColumns.length + 1}" class="text-center">No hay proyectos para mostrar.</td></tr>`;
+                if (tableBody) {
+                    tableBody.innerHTML = `<tr><td colspan="${visibleColumns.length + 1}" class="text-center">No hay proyectos para mostrar.</td></tr>`;
+                }
                 return;
             }
 
@@ -611,7 +649,9 @@ const detailColumns = [
                 });
                 cells += `<td><span title="Ver Detalles" onclick="openDetailsModal(${project['Id Project']})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye-fill text-info action-icons" viewBox="0 0 16 16"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg></span><span title="Editar" onclick="openEditModal(${project['Id Project']})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square text-primary action-icons" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.813z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg></span></td>`;
                 tr.innerHTML = cells;
-                tableBody.appendChild(tr);
+                if (tableBody) {
+                    tableBody.appendChild(tr);
+                }
             });
         }
 
@@ -626,17 +666,18 @@ const detailColumns = [
             const pageInfo = document.getElementById('page-info');
             const prevBtn = document.getElementById('prev-page-btn');
             const nextBtn = document.getElementById('next-page-btn');
+            const paginationContainer = document.getElementById('pagination-container');
 
-            document.getElementById('pagination-container').style.display = 'flex';
+            if (paginationContainer) paginationContainer.style.display = 'flex';
 
             if (totalPages === 0) {
-                pageInfo.textContent = 'Página 0 de 0';
-                prevBtn.disabled = true;
-                nextBtn.disabled = true;
+                if (pageInfo) pageInfo.textContent = 'Página 0 de 0';
+                if (prevBtn) prevBtn.disabled = true;
+                if (nextBtn) nextBtn.disabled = true;
             } else {
-                pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
-                prevBtn.disabled = currentPage === 1;
-                nextBtn.disabled = currentPage === totalPages;
+                if (pageInfo) pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+                if (prevBtn) prevBtn.disabled = currentPage === 1;
+                if (nextBtn) nextBtn.disabled = currentPage === totalPages;
             }
         }
 
@@ -646,16 +687,22 @@ const detailColumns = [
          */
         function setupModalForm(project = {}) {
             const isEdit = project && project['Id Project'];
-            document.getElementById('projectModalLabel').textContent = isEdit ? `Editar Proyecto: ${project.Project}` : 'Agregar Nuevo Proyecto';
-            document.getElementById('backToDetailsBtn').style.display = isEdit ? 'inline-block' : 'none';
+            const projectModalLabel = document.getElementById('projectModalLabel');
+            if (projectModalLabel) projectModalLabel.textContent = isEdit ? `Editar Proyecto: ${project.Project}` : 'Agregar Nuevo Proyecto';
+            const backToDetailsBtn = document.getElementById('backToDetailsBtn');
+            if (backToDetailsBtn) backToDetailsBtn.style.display = isEdit ? 'inline-block' : 'none';
 
             const faseSection = document.getElementById('fase-control-section');
-            if (isEdit) {
-                faseSection.style.display = 'block';
-            } else {
-                faseSection.style.display = 'none';
-                document.getElementById('faseSelect').value = '';
-                document.getElementById('faseDate').value = '';
+            if (faseSection) {
+                if (isEdit) {
+                    faseSection.style.display = 'block';
+                } else {
+                    faseSection.style.display = 'none';
+                    const faseSelect = document.getElementById('faseSelect');
+                    if (faseSelect) faseSelect.value = '';
+                    const faseDate = document.getElementById('faseDate');
+                    if (faseDate) faseDate.value = '';
+                }
             }
 
             const formContainer = document.querySelector('#projectForm .row');
@@ -778,9 +825,11 @@ const detailColumns = [
                 estadoField.addEventListener('change', function() {
                     if (this.value.toLowerCase() === 'cerrado') {
                         // Auto-llenar fase con "CIERRE" y fecha actual
-                        document.getElementById('faseSelect').value = 'CIERRE';
+                        const faseSelect = document.getElementById('faseSelect');
+                        if (faseSelect) faseSelect.value = 'CIERRE';
                         const today = new Date().toISOString().split('T')[0];
-                        document.getElementById('faseDate').value = today;
+                        const faseDate = document.getElementById('faseDate');
+                        if (faseDate) faseDate.value = today;
                     }
                 });
             }
@@ -792,8 +841,10 @@ const detailColumns = [
          */
         function updateNavButtons() {
             const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
-            document.getElementById('prevProjectBtn').disabled = currentIndex <= 0;
-            document.getElementById('nextProjectBtn').disabled = currentIndex >= currentVisibleProjectIds.length - 1;
+            const prevProjectBtn = document.getElementById('prevProjectBtn');
+            const nextProjectBtn = document.getElementById('nextProjectBtn');
+            if (prevProjectBtn) prevProjectBtn.disabled = currentIndex <= 0;
+            if (nextProjectBtn) nextProjectBtn.disabled = currentIndex >= currentVisibleProjectIds.length - 1;
         }
 
         /**
@@ -811,8 +862,10 @@ const detailColumns = [
             }
             console.log('Project found:', project);
 
-            document.getElementById('detailsModalLabel').textContent = `ID ${project['Id Project']} - ${project.Project}`;
-            document.getElementById('editFromDetailsBtn').dataset.projectId = projectId;
+            const detailsModalLabel = document.getElementById('detailsModalLabel');
+            if (detailsModalLabel) detailsModalLabel.textContent = `ID ${project['Id Project']} - ${project.Project}`;
+            const editFromDetailsBtn = document.getElementById('editFromDetailsBtn');
+            if (editFromDetailsBtn) editFromDetailsBtn.dataset.projectId = projectId;
             const detailsBody = document.getElementById('detailsModalBody');
 
             const fieldGroups = {
@@ -896,7 +949,9 @@ const detailColumns = [
             });
 
             detailsHtml += '</div>';
-            detailsBody.innerHTML = detailsHtml;
+            if (detailsBody) {
+                detailsBody.innerHTML = detailsHtml;
+            }
 
             updateNavButtons();
         }
@@ -1053,11 +1108,11 @@ const detailColumns = [
                 // Actualizar los datos y re-renderizar las tablas
                 await fetchProjects();
                 displayAllPendientes();
-                alert('Estado del proyecto actualizado correctamente.');
+                showNotification('Estado del proyecto actualizado correctamente.', 'success');
 
             } catch (error) {
                 console.error("Error updating project status:", error);
-                alert(`Error al actualizar el estado del proyecto: ${error.message}`);
+                showNotification(`Error al actualizar el estado del proyecto: ${error.message}`, 'error');
             }
         };
 
@@ -1075,8 +1130,8 @@ const detailColumns = [
                     // Actualiza el título del modal para incluir el nombre del proyecto
                     modalTitle.innerHTML = `<i class="bi bi-journal-text me-2"></i>Observaciones - ${project.Project || 'Sin Título'}`;
                 }
-                textarea.value = originalObservacionesContent;
-                observacionesModal.show();
+                if (textarea) textarea.value = originalObservacionesContent;
+                observacionesModal?.show();
 
                 // Resetear la búsqueda al abrir el modal
                 notepadSearchBar.classList.remove('visible');
@@ -1098,11 +1153,13 @@ const detailColumns = [
         // Abre el modal de detalles para un proyecto específico.
         window.openDetailsModal = (projectId) => {
             showProjectDetails(projectId);
-            detailsModal.show();
+            detailsModal?.show();
             // Usar el evento 'shown' para redimensionar los textareas DESPUÉS de que el modal sea visible
-            detailsModalEl.addEventListener('shown.bs.modal', () => {
-                detailsModalEl.querySelectorAll('textarea').forEach(autoResizeTextarea);
-            }, { once: true });
+            if (detailsModalEl) {
+                detailsModalEl.addEventListener('shown.bs.modal', () => {
+                    detailsModalEl.querySelectorAll('textarea').forEach(autoResizeTextarea);
+                }, { once: true });
+            }
         };
 
         // Abre el modal de inventario para un proyecto específico.
@@ -1117,7 +1174,7 @@ const detailColumns = [
 
                 // Actualizar título del modal con el nombre del proyecto
                 const modalLabel = document.getElementById('inventoryModalLabel');
-                modalLabel.innerHTML = `<i class="bi bi-server me-2"></i>Inventario de Equipos - ${projectName}`;
+                if (modalLabel) modalLabel.innerHTML = `<i class="bi bi-server me-2"></i>Inventario de Equipos - ${projectName}`;
 
                 console.log('Haciendo fetch a /api/inventario?proyecto_id=' + projectId);
                 const response = await fetch(`/api/inventario?proyecto_id=${projectId}`);
@@ -1137,7 +1194,7 @@ const detailColumns = [
                 const inventoryForm = document.getElementById('inventoryForm');
 
                 // Ocultar formulario al abrir
-                inventoryForm.style.display = 'none';
+                if (inventoryForm) inventoryForm.style.display = 'none';
 
                 console.log('Elementos DOM encontrados:', {
                     inventoryTableBody: !!inventoryTableBody,
@@ -1147,50 +1204,153 @@ const detailColumns = [
 
                 if (inventario.length === 0) {
                     console.log('Inventario vacío, mostrando mensaje vacío');
-                    inventoryTable.style.display = 'none';
-                    inventoryEmpty.style.display = 'block';
+                    if (inventoryTable) inventoryTable.style.display = 'none';
+                    if (inventoryEmpty) inventoryEmpty.style.display = 'block';
                 } else {
                     console.log('Inventario con datos, mostrando tabla');
-                    inventoryTable.style.display = 'table';
-                    inventoryEmpty.style.display = 'none';
+                    if (inventoryTable) inventoryTable.style.display = 'table';
+                    if (inventoryEmpty) inventoryEmpty.style.display = 'none';
 
                     renderInventoryTable(inventario);
                 }
 
                 // Guardar el projectId actual para usarlo en el formulario
-                document.getElementById('invProyectoId').value = projectId;
+                const invProyectoId = document.getElementById('invProyectoId');
+                if (invProyectoId) invProyectoId.value = projectId;
 
                 console.log('Mostrando modal de inventario');
-                const inventoryModal = new bootstrap.Modal(document.getElementById('inventoryModal'));
-                inventoryModal.show();
+                // Verificar si bootstrap está disponible
+                const inventoryModalEl = document.getElementById('inventoryModal');
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal && inventoryModalEl) {
+                    const inventoryModal = new bootstrap.Modal(inventoryModalEl, {
+                        backdrop: false,
+                        keyboard: false
+                    });
+                    inventoryModal.show();
+                } else {
+                    // Si bootstrap no está disponible, mostrar el modal manualmente
+                    const modal = document.getElementById('inventoryModal');
+                    if (modal) {
+                        modal.style.display = 'block';
+                        modal.classList.add('show');
+                        document.body.classList.add('modal-open');
+
+                        // Crear backdrop manualmente
+                        const backdrop = document.createElement('div');
+                        backdrop.className = 'modal-backdrop show';
+                        backdrop.id = 'inventoryModalBackdrop';
+                        document.body.appendChild(backdrop);
+                    }
+                }
+
+                // Inicializar funcionalidad de movimiento y redimensionamiento
+                initInventoryModalDrag();
 
             } catch (error) {
                 console.error('Error al cargar inventario:', error);
-                alert('Error al cargar el inventario del proyecto: ' + error.message);
+                showNotification('Error al cargar el inventario del proyecto: ' + error.message, 'error');
             }
         };
 
+        // Funcionalidad para mover y redimensionar el modal de inventario
+        function initInventoryModalDrag() {
+            const modalDialog = document.getElementById('inventoryModalDialog');
+            if (!modalDialog) return;
+            const modalHeader = modalDialog.querySelector('.modal-header');
+            let isDragging = false;
+            let currentX;
+            let currentY;
+            let initialX;
+            let initialY;
+            let xOffset = 0;
+            let yOffset = 0;
+
+            // Función para mover el modal
+            function dragStart(e) {
+                if (e.type === "touchstart") {
+                    initialX = e.touches[0].clientX - xOffset;
+                    initialY = e.touches[0].clientY - yOffset;
+                } else {
+                    initialX = e.clientX - xOffset;
+                    initialY = e.clientY - yOffset;
+                }
+
+                if (e.target === modalHeader || modalHeader.contains(e.target)) {
+                    isDragging = true;
+                }
+            }
+
+            function dragEnd(e) {
+                initialX = currentX;
+                initialY = currentY;
+                isDragging = false;
+            }
+
+            function drag(e) {
+                if (isDragging) {
+                    e.preventDefault();
+
+                    if (e.type === "touchmove") {
+                        currentX = e.touches[0].clientX - initialX;
+                        currentY = e.touches[0].clientY - initialY;
+                    } else {
+                        currentX = e.clientX - initialX;
+                        currentY = e.clientY - initialY;
+                    }
+
+                    xOffset = currentX;
+                    yOffset = currentY;
+
+                    // Aplicar límites de pantalla
+                    const maxX = window.innerWidth - modalDialog.offsetWidth;
+                    const maxY = window.innerHeight - modalDialog.offsetHeight;
+
+                    const newX = Math.max(0, Math.min(currentX, maxX));
+                    const newY = Math.max(0, Math.min(currentY, maxY));
+
+                    modalDialog.style.left = newX + 'px';
+                    modalDialog.style.top = newY + 'px';
+                }
+            }
+
+            // Event listeners para el movimiento
+            modalHeader.addEventListener('mousedown', dragStart);
+            document.addEventListener('mouseup', dragEnd);
+            document.addEventListener('mousemove', drag);
+
+            // Touch events para móviles
+            modalHeader.addEventListener('touchstart', dragStart);
+            document.addEventListener('touchend', dragEnd);
+            document.addEventListener('touchmove', drag);
+
+            // Redimensionamiento nativo del navegador ya funciona con CSS resize: both
+        }
+
         // Botón para agregar un nuevo proyecto.
-        document.getElementById('addProjectBtn').addEventListener('click', () => {
-            setupModalForm();
-            projectModal.show();
+        addEventListenerSafely('addProjectBtn', 'click', function() {
+            setupModalForm(); // Abrir modal en modo agregar
+            projectModal?.show();
         });
 
         // Botón "Editar" dentro del modal de detalles.
-        document.getElementById('editFromDetailsBtn').addEventListener('click', function() {
+        addEventListenerSafely('editFromDetailsBtn', 'click', function() {
             const projectId = parseFloat(this.dataset.projectId);
             if (projectId) {
-                detailsModal.hide();
-                setTimeout(() => { openEditModal(projectId); }, 150);
+                detailsModal?.hide();
+                setTimeout(() => {
+                    const project = allProjects.find(p => p['Id Project'] === projectId);
+                    setupModalForm(project); // Abrir modal en modo editar
+                    projectModal?.show();
+                }, 150);
             }
         });
 
         // Botón "Ver Detalles" dentro del modal de edición.
-        document.getElementById('backToDetailsBtn').addEventListener('click', function() {
+        addEventListenerSafely('backToDetailsBtn', 'click', function() {
             const idField = document.getElementById('field-Id Project');
             const projectId = idField ? parseFloat(idField.value) : null;
             if (projectId) {
-                projectModal.hide();
+                projectModal?.hide();
                 setTimeout(() => { openDetailsModal(projectId); }, 150);
             }
         });
@@ -1198,6 +1358,10 @@ const detailColumns = [
         // Lógica para guardar cambios en Observaciones
         const saveObservaciones = async (silent = false) => {
             const textarea = document.getElementById('observacionesContent');
+            if (!textarea) {
+                if (!silent) showNotification('Error: No se encontró el campo de observaciones', 'error');
+                return false;
+            }
             const newContent = textarea.value;
 
             try {
@@ -1227,25 +1391,27 @@ const detailColumns = [
                 return true;
             } catch (error) {
                 console.error(error);
-                if (!silent) alert('Error al guardar: ' + error.message);
+                if (!silent) showNotification('Error al guardar: ' + error.message, 'error');
                 return false;
             }
         };
 
-        document.getElementById('saveObservacionesBtn').addEventListener('click', () => saveObservaciones(false));
+        addEventListenerSafely('saveObservacionesBtn', 'click', () => saveObservaciones(false));
 
         // --- Lógica de Búsqueda y Reemplazo en Bloc de Notas ---
 
         let searchDebounceTimeout;
 
         const performSearch = () => {
+            if (!notepadSearchInput || !notepadTextarea) return;
+
             const searchTerm = notepadSearchInput.value;
             const content = notepadTextarea.value;
             searchMatches = [];
             currentMatchIndex = -1;
 
             if (!searchTerm) {
-                notepadMatchCounter.textContent = '0/0';
+                if (notepadMatchCounter) notepadMatchCounter.textContent = '0/0';
                 return;
             }
 
@@ -1259,72 +1425,83 @@ const detailColumns = [
                 currentMatchIndex = 0;
                 highlightMatch(currentMatchIndex, false); // Pasamos 'false' para no robar el foco
             } else {
-                notepadMatchCounter.textContent = '0/0';
+                if (notepadSearchInput) notepadSearchInput.focus();
+            }
+
+            // Actualizar contador de coincidencias
+            if (notepadMatchCounter) {
+                notepadMatchCounter.textContent = searchMatches.length > 0 ? `1/${searchMatches.length}` : '0/0';
+            }
+        }
+
+        const highlightMatch = (index, stealFocus = true) => {
+            if (!notepadTextarea || index < 0 || index >= searchMatches.length) return;
+
+            const searchTerm = notepadSearchInput.value;
+            const content = notepadTextarea.value;
+
+            // Limpiar cualquier contenido previo con tags HTML
+            const cleanContent = content.replace(/<mark[^>]*>(.*?)<\/mark>/gi, '$1');
+            notepadTextarea.value = cleanContent;
+
+            // Resaltar la coincidencia actual usando selección de texto
+            const matchIndex = searchMatches[index];
+            const matchLength = searchTerm.length;
+
+            // Seleccionar el texto encontrado
+            notepadTextarea.focus();
+            notepadTextarea.setSelectionRange(matchIndex, matchIndex + matchLength);
+
+            // Actualizar contador
+            if (notepadMatchCounter) {
+                notepadMatchCounter.textContent = `${index + 1}/${searchMatches.length}`;
             }
         };
 
-        const highlightMatch = (index, setFocus = true) => {
-            if (index < 0 || index >= searchMatches.length) return;
-
-            const start = searchMatches[index];
-            const end = start + notepadSearchInput.value.length;
-
-            // Realiza la selección del texto en el área de notas
-            notepadTextarea.setSelectionRange(start, end);
-
-            if (setFocus) {
-                // Si se solicita, mueve el foco al área de texto (para botones Siguiente/Anterior)
-                notepadTextarea.focus();
-            } else {
-                // Si no, asegura que el foco permanezca en el campo de búsqueda (mientras se escribe)
-                notepadSearchInput.focus();
-                // Coloca el cursor al final del texto en el input para poder seguir escribiendo
-                const len = notepadSearchInput.value.length;
-                notepadSearchInput.setSelectionRange(len, len);
-            }
-
-            notepadMatchCounter.textContent = `${index + 1}/${searchMatches.length}`;
-        };
-
-        document.getElementById('toggleSearchBtn').addEventListener('click', () => {
-            notepadSearchBar.classList.toggle('visible');
-            if (notepadSearchBar.classList.contains('visible')) {
-                notepadSearchInput.focus();
-                performSearch();
-            }
-        });
-
-        document.getElementById('notepad-close-search-btn').addEventListener('click', () => {
+        addEventListenerSafely('notepad-close-search-btn', 'click', () => {
             notepadSearchBar.classList.remove('visible');
             clearTimeout(searchDebounceTimeout);
         });
 
-        // Se usa un debounce para evitar que la búsqueda se ejecute en cada pulsación,
-        // lo que permite al usuario terminar de escribir antes de que el foco cambie.
-        notepadSearchInput.addEventListener('input', () => {
-            clearTimeout(searchDebounceTimeout);
-            searchDebounceTimeout = setTimeout(performSearch, 350);
-        });
-        notepadSearchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('notepad-next-btn').click();
+        // Event listener para el botón de búsqueda (lupa)
+        addEventListenerSafely('toggleSearchBtn', 'click', () => {
+            notepadSearchBar.classList.toggle('visible');
+            if (notepadSearchBar.classList.contains('visible')) {
+                notepadSearchInput.focus();
             }
         });
 
-        document.getElementById('notepad-next-btn').addEventListener('click', () => {
+        // Se usa un debounce para evitar que la búsqueda se ejecute en cada pulsación,
+        // lo que permite al usuario terminar de escribir antes de que el foco cambie.
+        if (notepadSearchInput) {
+            notepadSearchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimeout);
+                searchDebounceTimeout = setTimeout(performSearch, 350);
+            });
+        }
+        if (notepadSearchInput) {
+            notepadSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const nextBtn = document.getElementById('notepad-next-btn');
+                    if (nextBtn) nextBtn.click();
+                }
+            });
+        }
+
+        addEventListenerSafely('notepad-next-btn', 'click', () => {
             if (searchMatches.length === 0) return;
             currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
             highlightMatch(currentMatchIndex);
         });
 
-        document.getElementById('notepad-prev-btn').addEventListener('click', () => {
+        addEventListenerSafely('notepad-prev-btn', 'click', () => {
             if (searchMatches.length === 0) return;
             currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
             highlightMatch(currentMatchIndex);
         });
 
-        document.getElementById('notepad-replace-btn').addEventListener('click', () => {
+        addEventListenerSafely('notepad-replace-btn', 'click', () => {
             const start = notepadTextarea.selectionStart;
             const end = notepadTextarea.selectionEnd;
             if (end - start === 0 || searchMatches.length === 0) return;
@@ -1332,7 +1509,7 @@ const detailColumns = [
             performSearch();
         });
 
-        document.getElementById('notepad-replace-all-btn').addEventListener('click', () => {
+        addEventListenerSafely('notepad-replace-all-btn', 'click', () => {
             const searchTerm = notepadSearchInput.value;
             if (!searchTerm) return;
             const replaceTerm = notepadReplaceInput.value;
@@ -1343,18 +1520,19 @@ const detailColumns = [
 
         // Botón para maximizar/restaurar el bloc de notas
         const maximizeBtn = document.getElementById('maximizeObservacionesBtn');
-        if (maximizeBtn) {
+        if (maximizeBtn && observacionesModalEl) {
             maximizeBtn.addEventListener('click', () => {
                 const modalDialog = observacionesModalEl.querySelector('.modal-dialog');
                 const modalContent = observacionesModalEl.querySelector('.modal-content');
                 const icon = maximizeBtn.querySelector('i');
 
-                modalDialog.classList.toggle('modal-fullscreen');
-                modalContent.classList.toggle('notepad-fullscreen');
+                if (modalDialog && modalContent) {
+                    modalDialog.classList.toggle('modal-fullscreen');
+                    modalContent.classList.toggle('notepad-fullscreen');
 
-                if (modalDialog.classList.contains('modal-fullscreen')) {
-                    // Limpiar estilos de arrastre para que ocupe toda la pantalla correctamente
-                    modalDialog.style.top = '';
+                    if (modalDialog.classList.contains('modal-fullscreen')) {
+                        // Limpiar estilos de arrastre para que ocupe toda la pantalla correctamente
+                        modalDialog.style.top = '';
                     modalDialog.style.left = '';
                     modalDialog.style.position = '';
                     modalDialog.style.margin = '';
@@ -1365,43 +1543,46 @@ const detailColumns = [
                     icon.classList.replace('bi-fullscreen-exit', 'bi-arrows-fullscreen');
                     maximizeBtn.title = "Maximizar";
                 }
+                }
             });
         }
 
         // Detectar cambios al cerrar el modal de Observaciones
-        observacionesModalEl.addEventListener('hide.bs.modal', function (e) {
-            if (autoSaveInterval) clearInterval(autoSaveInterval); // Detener autoguardado
-            clearTimeout(searchDebounceTimeout); // Limpiar el temporizador de búsqueda
+        if (observacionesModalEl) {
+            observacionesModalEl.addEventListener('hide.bs.modal', function (e) {
+                if (autoSaveInterval) clearInterval(autoSaveInterval); // Detener autoguardado
+                clearTimeout(searchDebounceTimeout); // Limpiar el temporizador de búsqueda
 
-            // Restablecer el título del modal al cerrar para que no se quede el nombre del proyecto anterior
-            const modalTitle = document.getElementById('observacionesModalLabel');
-            if (modalTitle) {
-                modalTitle.innerHTML = `<i class="bi bi-journal-text me-2"></i>Observaciones`;
-            }
-
-            const textarea = document.getElementById('observacionesContent');
-            if (textarea.value !== originalObservacionesContent) {
-                if (confirm("Se han detectado cambios sin guardar en las observaciones.\n\n¿Desea guardar los cambios antes de salir?")) {
-                    e.preventDefault(); // Detener el cierre temporalmente
-                    saveObservaciones().then(success => {
-                        if (success) {
-                            observacionesModal.hide(); // Cerrar manualmente si se guardó con éxito
-                        }
-                    });
+                // Restablecer el título del modal al cerrar para que no se quede el nombre del proyecto anterior
+                const modalTitle = document.getElementById('observacionesModalLabel');
+                if (modalTitle) {
+                    modalTitle.innerHTML = `<i class="bi bi-journal-text me-2"></i>Observaciones`;
                 }
-                // Si el usuario cancela (dice "No"), el modal se cierra y los cambios se descartan (comportamiento por defecto)
-            }
-        });
+
+                const textarea = document.getElementById('observacionesContent');
+                if (textarea && textarea.value !== originalObservacionesContent) {
+                    if (confirm("Se han detectado cambios sin guardar en las observaciones.\n\n¿Desea guardar los cambios antes de salir?")) {
+                        e.preventDefault(); // Detener el cierre temporalmente
+                        saveObservaciones().then(success => {
+                            if (success) {
+                                observacionesModal?.hide(); // Cerrar manualmente si se guardó con éxito
+                            }
+                        });
+                    }
+                    // Si el usuario cancela (dice "No"), el modal se cierra y los cambios se descartan (comportamiento por defecto)
+                }
+            });
+        }
 
         // Botones de navegación "Anterior" y "Siguiente" en el modal de detalles.
-        document.getElementById('prevProjectBtn').addEventListener('click', () => {
+        addEventListenerSafely('prevProjectBtn', 'click', () => {
             const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
             if (currentIndex > 0) {
                 showProjectDetails(currentVisibleProjectIds[currentIndex - 1]);
             }
         });
 
-        document.getElementById('nextProjectBtn').addEventListener('click', () => {
+        addEventListenerSafely('nextProjectBtn', 'click', () => {
             const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
             if (currentIndex < currentVisibleProjectIds.length - 1) {
                 showProjectDetails(currentVisibleProjectIds[currentIndex + 1]);
@@ -1409,19 +1590,24 @@ const detailColumns = [
         });
 
         // Botón "Guardar" en el modal de agregar/editar.
-document.getElementById('saveProjectBtn').addEventListener('click', async (e) => {
+addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
     e.preventDefault(); // Prevenir el comportamiento por defecto
 
     const form = document.getElementById('projectForm');
     const idField = document.getElementById('field-Id Project');
     const projectId = idField ? parseFloat(idField.value) : null;
 
-    if (!projectId) {
-        alert('El campo "Id Project" es obligatorio y debe ser un número.');
+    if (!form) {
+        showNotification('Error: No se encontró el formulario del proyecto', 'error');
         return;
     }
 
-    const isEdit = idField.hasAttribute('readonly');
+    if (!projectId) {
+        showNotification('El campo "Id Project" es obligatorio y debe ser un número.', 'error');
+        return;
+    }
+
+    const isEdit = idField && idField.hasAttribute('readonly');
 
     // Usar FormData para serializar correctamente todo el formulario
     const formData = new FormData(form);
@@ -1456,7 +1642,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         // Si la operación es exitosa, preparamos la transición al modal de detalles.
         // Usamos el evento 'hidden.bs.modal' para asegurar que el modal de edición se
         // haya cerrado completamente antes de abrir el de detalles.
-        if (isEdit) {
+        if (isEdit && projectModalEl) {
             projectModalEl.addEventListener('hidden.bs.modal', async () => {
                 await fetchProjects(); // Actualizar datos
                 displayAllPendientes(); // Actualizar pendientes
@@ -1467,27 +1653,29 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
              displayAllPendientes();
         }
 
-        projectModal.hide();
+        projectModal?.hide();
 
     } catch (error) {
         console.error("Error saving project:", error);
-        alert(`Error al guardar el proyecto: ${error.message}`);
+        showNotification(`Error al guardar el proyecto: ${error.message}`, 'error');
     }
 });
 
         // Doble clic en una fila de la tabla para abrir los detalles.
-        tableBody.addEventListener('dblclick', function(event) {
-            const row = event.target.closest('tr');
-            if (row && row.dataset.id) {
-                const projectId = parseFloat(row.dataset.id);
-                if (!isNaN(projectId)) {
-                    openDetailsModal(projectId);
+        if (tableBody) {
+            tableBody.addEventListener('dblclick', function(event) {
+                const row = event.target.closest('tr');
+                if (row && row.dataset.id) {
+                    const projectId = parseFloat(row.dataset.id);
+                    if (!isNaN(projectId)) {
+                        openDetailsModal(projectId);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // Doble clic en una fila de la tabla de pendientes para abrir los detalles.
-        document.getElementById('pendientes-table-body').addEventListener('dblclick', function(event) {
+        addEventListenerSafely('pendientes-table-body', 'dblclick', function(event) {
             const row = event.target.closest('tr');
             if (row && row.dataset.id) {
                 const projectId = parseFloat(row.dataset.id);
@@ -1505,8 +1693,9 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         function displayAllPendientes() {
             const pendientesTableBody = document.getElementById('pendientes-table-body');
             const pendientesTitle = document.getElementById('pendientes-title');
-            pendientesTableBody.innerHTML = '';
-            pendientesTitle.textContent = 'Resumen de Pendientes';
+
+            if (pendientesTableBody) pendientesTableBody.innerHTML = '';
+            if (pendientesTitle) pendientesTitle.textContent = 'Resumen de Pendientes';
 
             // Filtrar proyectos que no están finalizados (FINALIZADO !== 'OK')
             const notFinishedProjects = allProjects.filter(p => !p.Estado || String(p.Estado).trim().toLowerCase() !== 'finalizado');
@@ -1544,8 +1733,12 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 // Si no hay proyectos con estados "Pendiente" o "En curso", mostrar un mensaje y salir.
                 if (projectsWithRelevantPendientes.length === 0) {
                     const pendientesTableHeader = document.querySelector('#pendientes-table-container thead tr');
-                    pendientesTableHeader.innerHTML = '<th>Proyecto</th>'; // Restablecer encabezado
-                    pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos con pendientes o en curso.</td></tr>`;
+                    if (pendientesTableHeader) {
+                        pendientesTableHeader.innerHTML = '<th>Proyecto</th>'; // Restablecer encabezado
+                    }
+                    if (pendientesTableBody) {
+                        pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos con pendientes o en curso.</td></tr>`;
+                    }
                     return;
                 }
 
@@ -1574,8 +1767,10 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
 
                 // 2. Generar el encabezado de la tabla dinámicamente con los títulos normalizados
                 const pendientesTableHeader = document.querySelector('#pendientes-table-container thead tr');
-                pendientesTableHeader.innerHTML = '<th>Proyecto</th>' +
-                                                  displayColumns.map(title => `<th>${title}</th>`).join('');
+                if (pendientesTableHeader) {
+                    pendientesTableHeader.innerHTML = '<th>Proyecto</th>' +
+                                                      displayColumns.map(title => `<th>${title}</th>`).join('');
+                }
 
                 // 3. Llenar el cuerpo de la tabla
                 projectsWithRelevantPendientes.forEach(project => { // Usar la lista filtrada
@@ -1602,32 +1797,43 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                         rowHtml += cellContent || '<td></td>'; // Añadir el contenido o una celda vacía
                     });
                     tr.innerHTML = rowHtml;
-                    pendientesTableBody.appendChild(tr);
+                    if (pendientesTableBody) {
+                        pendientesTableBody.appendChild(tr);
+                    }
                 });
             } else {
                 const pendientesTableHeader = document.querySelector('#pendientes-table-container thead tr');
-                pendientesTableHeader.innerHTML = '<th>Proyecto</th>'; // Restablecer encabezado si no hay proyectos
-                pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos activos con pendientes.</td></tr>`;
+                if (pendientesTableHeader) {
+                    pendientesTableHeader.innerHTML = '<th>Proyecto</th>'; // Restablecer encabezado si no hay proyectos
+                }
+                if (pendientesTableBody) {
+                    pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos activos con pendientes.</td></tr>`;
+                }
             }
         }
 
         // Listeners para los filtros que recargan la tabla y el gráfico.
-        yearSelector.addEventListener('change', (event) => {
-            currentPage = 1;
-            selectedMonth = null; // Limpiar filtro de mes al cambiar de año
-            document.getElementById('clearMonthFilterBtn').style.display = 'none';
-            renderTable();
-            renderChart(event.target.value);
-        });
+        if (yearSelector) {
+            yearSelector.addEventListener('change', (event) => {
+                currentPage = 1;
+                selectedMonth = null; // Limpiar filtro de mes al cambiar de año
+                const clearBtn = document.getElementById('clearMonthFilterBtn');
+                if (clearBtn) clearBtn.style.display = 'none';
+                renderTable();
+                renderChart(event.target.value);
+            });
+        }
 
-        searchInput.addEventListener('input', () => { currentPage = 1; renderTable(); });
+        if (searchInput) {
+            searchInput.addEventListener('input', () => { currentPage = 1; renderTable(); });
+        }
 
         fetchProjects().then(() => {
             displayAllPendientes(); // Carga inicial de todos los pendientes.
         }); // Carga inicial de los datos.
 
         // Botón para limpiar el filtro de mes aplicado desde el gráfico.
-        document.getElementById('clearMonthFilterBtn').addEventListener('click', () => {
+        addEventListenerSafely('clearMonthFilterBtn', 'click', () => {
             currentPage = 1;
             selectedMonth = null;
             // Restaurar el color de la barra en el gráfico
@@ -1637,17 +1843,18 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 selectedBarIndex = -1;
             }
             renderTable();
-            document.getElementById('clearMonthFilterBtn').style.display = 'none';
+            const clearBtn = document.getElementById('clearMonthFilterBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
         });
 
         // Listeners para los botones de paginación.
-        document.getElementById('prev-page-btn').addEventListener('click', () => {
+        addEventListenerSafely('prev-page-btn', 'click', () => {
             if (currentPage > 1) {
                 currentPage--;
                 renderTable();
             }
         });
-        document.getElementById('next-page-btn').addEventListener('click', () => {
+        addEventListenerSafely('next-page-btn', 'click', () => {
             currentPage++;
             renderTable();
         });
@@ -1658,46 +1865,56 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         const closedCard = document.querySelector('.stat-card.closed');
 
         function updateActiveCard() {
-            finishedCard.classList.remove('active');
-            notFinishedCard.classList.remove('active');
-            closedCard.classList.remove('active');
-            if (currentStatusFilter === 'finished') {
+            // Remover clase active de todas las tarjetas
+            document.querySelectorAll('.stat-card').forEach(card => card.classList.remove('active'));
+
+            // Agregar clase active a la tarjeta correspondiente al filtro actual
+            if (currentStatusFilter === 'finished' && finishedCard) {
                 finishedCard.classList.add('active');
-            } else if (currentStatusFilter === 'not-finished') {
+            } else if (currentStatusFilter === 'not-finished' && notFinishedCard) {
                 notFinishedCard.classList.add('active');
-            } else if (currentStatusFilter === 'closed') {
+            } else if (currentStatusFilter === 'closed' && closedCard) {
                 closedCard.classList.add('active');
             }
         }
 
-        finishedCard.addEventListener('click', () => {
-            currentPage = 1;
-            currentStatusFilter = currentStatusFilter === 'finished' ? null : 'finished';
-            updateActiveCard();
-            renderTable();
-        });
+        // Agregar event listeners solo si las tarjetas existen
+        if (finishedCard) {
+            finishedCard.addEventListener('click', () => {
+                currentPage = 1;
+                currentStatusFilter = currentStatusFilter === 'finished' ? null : 'finished';
+                updateActiveCard();
+                renderTable();
+            });
+        }
 
-        notFinishedCard.addEventListener('click', () => {
-            currentPage = 1;
-            currentStatusFilter = currentStatusFilter === 'not-finished' ? null : 'not-finished';
-            updateActiveCard();
-            renderTable();
-        });
+        if (notFinishedCard) {
+            notFinishedCard.addEventListener('click', () => {
+                currentPage = 1;
+                currentStatusFilter = currentStatusFilter === 'not-finished' ? null : 'not-finished';
+                updateActiveCard();
+                renderTable();
+            });
+        }
 
-        closedCard.addEventListener('click', () => {
-            currentPage = 1;
-            currentStatusFilter = currentStatusFilter === 'closed' ? null : 'closed';
-            updateActiveCard();
-            renderTable();
-        });
+        if (closedCard) {
+            closedCard.addEventListener('click', () => {
+                currentPage = 1;
+                currentStatusFilter = currentStatusFilter === 'closed' ? null : 'closed';
+                updateActiveCard();
+                renderTable();
+            });
+        }
 
         // Listener para el nuevo checkbox de filtro
-        notFinishedFilterSwitch.addEventListener('change', () => {
-            currentPage = 1;
-            currentStatusFilter = notFinishedFilterSwitch.checked ? 'not-finished' : null;
-            updateActiveCard();
-            renderTable();
-        });
+        if (notFinishedFilterSwitch) {
+            notFinishedFilterSwitch.addEventListener('change', () => {
+                currentPage = 1;
+                currentStatusFilter = notFinishedFilterSwitch.checked ? 'not-finished' : null;
+                updateActiveCard();
+                renderTable();
+            });
+        }
         // =================================================================================
         // LÓGICA DEL WIDGET DE EVENTOS
         // =================================================================================
@@ -1706,8 +1923,8 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         const eventToggleBtn = document.getElementById('event-toggle-btn');
         const nextEventContent = document.getElementById('next-event-content');
         const eventModalEl = document.getElementById('eventModal');
-        const eventModal = new bootstrap.Modal(eventModalEl);
-        makeModalDraggable(eventModalEl);
+        const eventModal = eventModalEl ? new bootstrap.Modal(eventModalEl) : null;
+        if (eventModalEl) makeModalDraggable(eventModalEl);
         let allEvents = [];
         let currentEventIndex = -1;
         let homeEventIndex = -1;
@@ -1731,29 +1948,39 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 let startDateClass = '';
                 if (diffHours > 0 && diffHours <= 24) {
                     startDateClass = 'overdue'; // Reutilizamos la clase 'overdue' para el resaltado color #ff4d8a
-                    eventToggleBtn.classList.add('warning');
+                    if (eventToggleBtn) {
+                        eventToggleBtn.classList.add('warning');
+                    }
                 } else {
-                    eventToggleBtn.classList.remove('warning');
+                    if (eventToggleBtn) {
+                        eventToggleBtn.classList.remove('warning');
+                    }
                 }
 
-                nextEventContent.innerHTML = `
-                    <h5>${event.Titulo}</h5>
-                    <p><strong>Inicio:</strong> <span class="${startDateClass}">${startDate.toLocaleDateString('es-ES', options)}</span></p>
-                    <p><strong>Lugar:</strong> ${event.Ubicacion || 'N/A'}</p>
-                    ${event.Descripcion ? `<p><strong>Desc:</strong> ${event.Descripcion}</p>` : ''}
-                `;
+                if (nextEventContent) {
+                    nextEventContent.innerHTML = `
+                        <h5>${event.Titulo}</h5>
+                        <p><strong>Inicio:</strong> <span class="${startDateClass}">${startDate.toLocaleDateString('es-ES', options)}</span></p>
+                        <p><strong>Lugar:</strong> ${event.Ubicacion || 'N/A'}</p>
+                        ${event.Descripcion ? `<p><strong>Desc:</strong> ${event.Descripcion}</p>` : ''}
+                    `;
+                }
                 // Asigna los eventos de clic para los botones de editar y eliminar.
-                document.getElementById('delete-event-btn').onclick = () => deleteEvent(event);
-                document.getElementById('edit-event-btn').onclick = () => editEvent(event);
+                const deleteEventBtn = document.getElementById('delete-event-btn');
+                const editEventBtn = document.getElementById('edit-event-btn');
+                if (deleteEventBtn) deleteEventBtn.onclick = () => deleteEvent(event);
+                if (editEventBtn) editEventBtn.onclick = () => editEvent(event);
 
                 if (index === homeEventIndex) {
-                    homeBtn.classList.add('active');
+                    if (homeBtn) homeBtn.classList.add('active');
                 } else {
-                    homeBtn.classList.remove('active');
+                    if (homeBtn) homeBtn.classList.remove('active');
                 }
             } else {
-                nextEventContent.innerHTML = '<p>No hay eventos para mostrar.</p>';
-                homeBtn.classList.remove('active');
+                if (nextEventContent) {
+                    nextEventContent.innerHTML = '<p>No hay eventos para mostrar.</p>';
+                }
+                if (homeBtn) homeBtn.classList.remove('active');
             }
         }
 
@@ -1764,7 +1991,9 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             try {
                 const response = await fetch('/api/events');
                 if (!response.ok) {
-                    nextEventContent.innerHTML = '<p>No hay eventos próximos.</p>';
+                    if (nextEventContent) {
+                        nextEventContent.innerHTML = '<p>No hay eventos próximos.</p>';
+                    }
                     return;
                 }
                 allEvents = await response.json();
@@ -1785,7 +2014,9 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 updateActiveCard(); // Asegura que la tarjeta activa se muestre al cargar
             } catch (error) {
                 console.error("Error fetching events:", error);
-                nextEventContent.innerHTML = '<p>Error al cargar eventos.</p>';
+                if (nextEventContent) {
+                    nextEventContent.innerHTML = '<p>Error al cargar eventos.</p>';
+                }
             }
         }
 
@@ -1821,7 +2052,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 fetchAllEvents(); // Actualizar los eventos
             } catch (error) {
                 console.error("Error deleting event:", error);
-                alert('Error al eliminar el evento.');
+                showNotification('Error al eliminar el evento.', 'error');
             }
         };
 
@@ -1841,12 +2072,18 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
             };
 
-            document.getElementById('eventModalLabel').textContent = 'Editar Evento';
-            document.getElementById('event-title').value = event.Titulo || '';
-            document.getElementById('event-start').value = toLocalInputValue(startDate);
-            document.getElementById('event-end').value = toLocalInputValue(endDate);
-            document.getElementById('event-location').value = event['Ubicacion'] || '';
-            document.getElementById('event-description').value = event['Descripcion'] || '';
+            const eventModalLabel = document.getElementById('eventModalLabel');
+            if (eventModalLabel) eventModalLabel.textContent = 'Editar Evento';
+            const eventTitle = document.getElementById('event-title');
+            if (eventTitle) eventTitle.value = event.Titulo || '';
+            const eventStart = document.getElementById('event-start');
+            if (eventStart) eventStart.value = toLocalInputValue(startDate);
+            const eventEnd = document.getElementById('event-end');
+            if (eventEnd) eventEnd.value = toLocalInputValue(endDate);
+            const eventLocation = document.getElementById('event-location');
+            if (eventLocation) eventLocation.value = event['Ubicacion'] || '';
+            const eventDescription = document.getElementById('event-description');
+            if (eventDescription) eventDescription.value = event['Descripcion'] || '';
             const hiddenIdInput = document.getElementById('event-id');
             if (hiddenIdInput) hiddenIdInput.value = event.id;
 
@@ -1854,17 +2091,19 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         };
 
         // Botón para agregar un nuevo evento: abre el modal vacío
-        document.getElementById('add-event-btn').addEventListener('click', () => {
+        addEventListenerSafely('add-event-btn', 'click', () => {
             currentEditingEvent = null;
-            document.getElementById('eventModalLabel').textContent = 'Nuevo Evento';
-            document.getElementById('eventForm').reset();
+            const eventModalLabel = document.getElementById('eventModalLabel');
+            if (eventModalLabel) eventModalLabel.textContent = 'Nuevo Evento';
+            const eventForm = document.getElementById('eventForm');
+            if (eventForm) eventForm.reset();
             const hiddenIdInput = document.getElementById('event-id');
             if (hiddenIdInput) hiddenIdInput.value = '';
-            eventModal.show();
+            if (eventModal) eventModal.show();
         });
 
         // Guardar evento (nuevo o edición)
-        document.getElementById('saveEventBtn').addEventListener('click', async () => {
+        addEventListenerSafely('saveEventBtn', 'click', async () => {
             const titleInput = document.getElementById('event-title');
             const startInput = document.getElementById('event-start');
             const endInput = document.getElementById('event-end');
@@ -1872,8 +2111,8 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             const descriptionInput = document.getElementById('event-description');
             const hiddenIdInput = document.getElementById('event-id');
 
-            if (!titleInput.value.trim() || !startInput.value) {
-                alert('Título y fecha de inicio son obligatorios.');
+            if (!titleInput || !titleInput.value.trim() || !startInput || !startInput.value) {
+                showNotification('Título y fecha de inicio son obligatorios.', 'error');
                 return;
             }
 
@@ -1916,29 +2155,33 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 eventModal.hide();
             } catch (error) {
                 console.error(isEditEvent ? "Error updating event:" : "Error adding event:", error);
-                alert(isEditEvent ? 'Error al actualizar el evento.' : 'Error al agregar el evento.');
+                showNotification(isEditEvent ? 'Error al actualizar el evento.' : 'Error al agregar el evento.', 'error');
             }
         });
 
         // Listeners para los botones de navegación del widget de eventos.
-        document.getElementById('next-event-btn').addEventListener('click', showNextEvent);
-        document.getElementById('prev-event-btn').addEventListener('click', showPreviousEvent);
-        document.getElementById('home-event-btn').addEventListener('click', showFirstEvent);
+        addEventListenerSafely('next-event-btn', 'click', showNextEvent);
+        addEventListenerSafely('prev-event-btn', 'click', showPreviousEvent);
+        addEventListenerSafely('home-event-btn', 'click', showFirstEvent);
 
         // Muestra el widget al hacer clic en el botón de toggle.
-        eventToggleBtn.addEventListener('click', () => {
-            eventWidget.classList.add('visible');
-        });
+        if (eventToggleBtn) {
+            eventToggleBtn.addEventListener('click', () => {
+                if (eventWidget) eventWidget.classList.add('visible');
+            });
+        }
 
         // Cierra el widget si se hace clic fuera de él.
-        document.addEventListener('click', (event) => {
-            const isClickInsideWidget = eventWidget.contains(event.target);
-            const isClickOnToggleBtn = eventToggleBtn.contains(event.target);
+        if (eventWidget && eventToggleBtn) {
+            document.addEventListener('click', (event) => {
+                const isClickInsideWidget = eventWidget.contains(event.target);
+                const isClickOnToggleBtn = eventToggleBtn.contains(event.target);
 
-            if (!isClickInsideWidget && !isClickOnToggleBtn && eventWidget.classList.contains('visible')) {
-                eventWidget.classList.remove('visible');
-            }
-        });
+                if (!isClickInsideWidget && !isClickOnToggleBtn && eventWidget.classList.contains('visible')) {
+                    eventWidget.classList.remove('visible');
+                }
+            });
+        }
 
         fetchAllEvents();
 
@@ -2094,7 +2337,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         const contactsEmptyMessage = document.getElementById('contacts-empty-message');
         const addContactBtn = document.getElementById('add-contact-btn');
         const contactModalEl = document.getElementById('contactModal');
-        const contactModal = new bootstrap.Modal(contactModalEl);
+        const contactModal = contactModalEl ? new bootstrap.Modal(contactModalEl) : null;
         const saveContactBtn = document.getElementById('saveContactBtn');
         let allContacts = [];
         let currentEditingContactId = null;
@@ -2112,14 +2355,20 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             const navUl = document.getElementById('contacts-pagination-nav');
 
             if (!paginationDiv || !startSpan || !endSpan || !totalSpan || !navUl) {
-                console.error('Pagination elements not found');
+                console.error('Pagination elements not found:', {
+                    paginationDiv: !!paginationDiv,
+                    startSpan: !!startSpan,
+                    endSpan: !!endSpan,
+                    totalSpan: !!totalSpan,
+                    navUl: !!navUl
+                });
                 return;
             }
 
             // Update info text
-            startSpan.textContent = start;
-            endSpan.textContent = end;
-            totalSpan.textContent = total;
+            if (startSpan) startSpan.textContent = start;
+            if (endSpan) endSpan.textContent = end;
+            if (totalSpan) totalSpan.textContent = total;
 
             // Generate pagination buttons
             let paginationHTML = '';
@@ -2893,7 +3142,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         // Toast notification helper
         function showToast(message, type = 'info') {
             // Create toast container if it doesn't exist
-            let toastContainer = document.getElementById('toast-container');
+            let toastContainer = addEventListenerSafely('toast-container');
             if (!toastContainer) {
                 toastContainer = document.createElement('div');
                 toastContainer.id = 'toast-container';
@@ -2933,7 +3182,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
         // Funciones para el manejo del inventario
         function renderInventoryTable(inventario) {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
-            inventoryTableBody.innerHTML = '';
+            if (inventoryTableBody) inventoryTableBody.innerHTML = '';
 
             inventario.forEach((item, index) => {
                 console.log(`Procesando item ${index}:`, item);
@@ -2965,7 +3214,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                         </button>
                     </td>
                 `;
-                inventoryTableBody.appendChild(row);
+                if (inventoryTableBody) inventoryTableBody.appendChild(row);
             });
 
             // Agregar event listeners para los botones de editar y eliminar
@@ -2989,45 +3238,66 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
             const formTitle = document.getElementById('inventoryFormTitle');
 
             // Mostrar formulario, ocultar tabla y mensaje vacío
-            inventoryForm.style.display = 'block';
-            inventoryTable.style.display = 'none';
-            inventoryEmpty.style.display = 'none';
+            if (inventoryForm) inventoryForm.style.display = 'block';
+            if (inventoryTable) inventoryTable.style.display = 'none';
+            if (inventoryEmpty) inventoryEmpty.style.display = 'none';
 
             if (item) {
                 // Modo edición
-                formTitle.textContent = 'Editar Equipo';
-                document.getElementById('invItemId').value = item.id;
-                document.getElementById('invUbicacion').value = item.ubicacion || '';
-                document.getElementById('invOt').value = item.ot || '';
-                document.getElementById('invCodigo').value = item.codigo || '';
-                document.getElementById('invHostname').value = item.hostname || '';
-                document.getElementById('invCpu').value = item.cpu || '';
-                document.getElementById('invRam').value = item.ram || '';
-                document.getElementById('invDiscoSo').value = item.disco_so || '';
-                document.getElementById('invDiscoPag').value = item.disco_pag || '';
-                document.getElementById('invDiscoData').value = item.disco_data || '';
-                document.getElementById('invIpGestion').value = item.ip_gestion || '';
-                document.getElementById('invIpServicios').value = item.ip_servicios || '';
-                document.getElementById('invIpProduccion').value = item.ip_produccion || '';
-                document.getElementById('invIpAdicional1').value = item.ip_adicional_1 || '';
-                document.getElementById('invIpAdicional2').value = item.ip_adicional_2 || '';
-                document.getElementById('invSistemaOperativo').value = item.sistema_operativo || '';
-                document.getElementById('invTipoEquipo').value = item.tipo_equipo || '';
-                document.getElementById('invReferencia').value = item.referencia || '';
+                if (formTitle) formTitle.textContent = 'Editar Equipo';
+                const invItemId = document.getElementById('invItemId');
+                if (invItemId) invItemId.value = item.id;
+                const invUbicacion = document.getElementById('invUbicacion');
+                if (invUbicacion) invUbicacion.value = item.ubicacion || '';
+                const invOt = document.getElementById('invOt');
+                if (invOt) invOt.value = item.ot || '';
+                const invCodigo = document.getElementById('invCodigo');
+                if (invCodigo) invCodigo.value = item.codigo || '';
+                const invHostname = document.getElementById('invHostname');
+                if (invHostname) invHostname.value = item.hostname || '';
+                const invCpu = document.getElementById('invCpu');
+                if (invCpu) invCpu.value = item.cpu || '';
+                const invRam = document.getElementById('invRam');
+                if (invRam) invRam.value = item.ram || '';
+                const invDiscoSo = document.getElementById('invDiscoSo');
+                if (invDiscoSo) invDiscoSo.value = item.disco_so || '';
+                const invDiscoPag = document.getElementById('invDiscoPag');
+                if (invDiscoPag) invDiscoPag.value = item.disco_pag || '';
+                const invDiscoData = document.getElementById('invDiscoData');
+                if (invDiscoData) invDiscoData.value = item.disco_data || '';
+                const invIpGestion = document.getElementById('invIpGestion');
+                if (invIpGestion) invIpGestion.value = item.ip_gestion || '';
+                const invIpServicios = document.getElementById('invIpServicios');
+                if (invIpServicios) invIpServicios.value = item.ip_servicios || '';
+                const invIpProduccion = document.getElementById('invIpProduccion');
+                if (invIpProduccion) invIpProduccion.value = item.ip_produccion || '';
+                const invIpAdicional1 = document.getElementById('invIpAdicional1');
+                if (invIpAdicional1) invIpAdicional1.value = item.ip_adicional_1 || '';
+                const invIpAdicional2 = document.getElementById('invIpAdicional2');
+                if (invIpAdicional2) invIpAdicional2.value = item.ip_adicional_2 || '';
+                const invSistemaOperativo = document.getElementById('invSistemaOperativo');
+                if (invSistemaOperativo) invSistemaOperativo.value = item.sistema_operativo || '';
+                const invTipoEquipo = document.getElementById('invTipoEquipo');
+                if (invTipoEquipo) invTipoEquipo.value = item.tipo_equipo || '';
+                const invReferencia = document.getElementById('invReferencia');
+                if (invReferencia) invReferencia.value = item.referencia || '';
             } else {
                 // Modo agregar
-                formTitle.textContent = 'Agregar Nuevo Equipo';
-                document.getElementById('inventoryItemForm').reset();
-                document.getElementById('invItemId').value = '';
+                if (formTitle) formTitle.textContent = 'Agregar Nuevo Equipo';
+                const inventoryItemForm = document.getElementById('inventoryItemForm');
+                if (inventoryItemForm) inventoryItemForm.reset();
+                const invItemId = document.getElementById('invItemId');
+                if (invItemId) invItemId.value = '';
             }
         }
 
         function hideInventoryForm() {
             const inventoryForm = document.getElementById('inventoryForm');
-            inventoryForm.style.display = 'none';
+            if (inventoryForm) inventoryForm.style.display = 'none';
 
             // Recargar inventario para mostrar la tabla actualizada
-            const projectId = document.getElementById('invProyectoId').value;
+            const invProyectoIdEl = document.getElementById('invProyectoId');
+            const projectId = invProyectoIdEl ? invProyectoIdEl.value : null;
             if (projectId) {
                 loadInventoryData(projectId);
             }
@@ -3053,33 +3323,41 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 }
             } catch (error) {
                 console.error('Error al cargar inventario:', error);
-                alert('Error al cargar el inventario: ' + error.message);
+                showNotification('Error al cargar inventario: ' + error.message, 'error');
             }
         }
 
         async function saveInventoryItem() {
-            const projectId = document.getElementById('invProyectoId').value;
-            const itemId = document.getElementById('invItemId').value;
+            const invProyectoIdEl = document.getElementById('invProyectoId');
+            const projectId = invProyectoIdEl ? invProyectoIdEl.value : null;
+
+            if (!projectId) {
+                showNotification('Error: No se pudo identificar el proyecto actual', 'error');
+                return;
+            }
+
+            const invItemIdEl = document.getElementById('invItemId');
+            const itemId = invItemIdEl ? invItemIdEl.value : null;
 
             const data = {
                 proyecto_id: projectId,
-                ubicacion: document.getElementById('invUbicacion').value,
-                ot: document.getElementById('invOt').value,
-                codigo: document.getElementById('invCodigo').value,
-                hostname: document.getElementById('invHostname').value,
-                cpu: document.getElementById('invCpu').value,
-                ram: document.getElementById('invRam').value,
-                disco_so: document.getElementById('invDiscoSo').value,
-                disco_pag: document.getElementById('invDiscoPag').value,
-                disco_data: document.getElementById('invDiscoData').value,
-                ip_gestion: document.getElementById('invIpGestion').value,
-                ip_servicios: document.getElementById('invIpServicios').value,
-                ip_produccion: document.getElementById('invIpProduccion').value,
-                ip_adicional_1: document.getElementById('invIpAdicional1').value,
-                ip_adicional_2: document.getElementById('invIpAdicional2').value,
-                sistema_operativo: document.getElementById('invSistemaOperativo').value,
-                tipo_equipo: document.getElementById('invTipoEquipo').value,
-                referencia: document.getElementById('invReferencia').value,
+                ubicacion: document.getElementById('invUbicacion')?.value || '',
+                ot: document.getElementById('invOt')?.value || '',
+                codigo: document.getElementById('invCodigo')?.value || '',
+                hostname: document.getElementById('invHostname')?.value || '',
+                cpu: document.getElementById('invCpu')?.value || '',
+                ram: document.getElementById('invRam')?.value || '',
+                disco_so: document.getElementById('invDiscoSo')?.value || '',
+                disco_pag: document.getElementById('invDiscoPag')?.value || '',
+                disco_data: document.getElementById('invDiscoData')?.value || '',
+                ip_gestion: document.getElementById('invIpGestion')?.value || '',
+                ip_servicios: document.getElementById('invIpServicios')?.value || '',
+                ip_produccion: document.getElementById('invIpProduccion')?.value || '',
+                ip_adicional_1: document.getElementById('invIpAdicional1')?.value || '',
+                ip_adicional_2: document.getElementById('invIpAdicional2')?.value || '',
+                sistema_operativo: document.getElementById('invSistemaOperativo')?.value || '',
+                tipo_equipo: document.getElementById('invTipoEquipo')?.value || '',
+                referencia: document.getElementById('invReferencia')?.value || '',
             };
 
             try {
@@ -3112,11 +3390,11 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 }
 
                 hideInventoryForm();
-                alert('Equipo guardado exitosamente');
+                showNotification('Equipo guardado exitosamente', 'success');
 
             } catch (error) {
                 console.error('Error al guardar equipo:', error);
-                alert('Error al guardar el equipo: ' + error.message);
+                showNotification('Error al guardar el equipo: ' + error.message, 'error');
             }
         }
 
@@ -3130,7 +3408,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
 
             } catch (error) {
                 console.error('Error al cargar equipo para editar:', error);
-                alert('Error al cargar el equipo: ' + error.message);
+                showNotification('Error al cargar el equipo: ' + error.message, 'error');
             }
         }
 
@@ -3153,21 +3431,23 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 }
 
                 // Recargar la tabla
-                const projectId = document.getElementById('invProyectoId').value;
+                const invProyectoIdEl = document.getElementById('invProyectoId');
+                const projectId = invProyectoIdEl ? invProyectoIdEl.value : null;
                 loadInventoryData(projectId);
-                alert('Equipo eliminado exitosamente');
+                showNotification('Equipo eliminado exitosamente', 'success');
 
             } catch (error) {
                 console.error('Error al eliminar equipo:', error);
-                alert('Error al eliminar el equipo: ' + error.message);
+                showNotification('Error al eliminar el equipo: ' + error.message, 'error');
             }
         }
 
         async function exportInventoryToExcel() {
-            const projectId = document.getElementById('invProyectoId').value;
+            const invProyectoIdEl = document.getElementById('invProyectoId');
+            const projectId = invProyectoIdEl ? invProyectoIdEl.value : null;
 
             if (!projectId) {
-                alert('Error: No se pudo identificar el proyecto actual');
+                showNotification('Error: No se pudo identificar el proyecto actual', 'error');
                 return;
             }
 
@@ -3179,7 +3459,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 const inventario = await response.json();
 
                 if (inventario.length === 0) {
-                    alert('No hay equipos para exportar');
+                    showNotification('No hay equipos para exportar', 'warning');
                     return;
                 }
 
@@ -3225,31 +3505,98 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
 
             } catch (error) {
                 console.error('Error al exportar a Excel:', error);
-                alert('Error al exportar a Excel: ' + error.message);
+                showNotification('Error al exportar a Excel: ' + error.message, 'error');
             }
         }
 
         // Event listeners para el formulario de inventario
-        document.getElementById('addInventoryItemBtn').addEventListener('click', () => {
+        addEventListenerSafely('addInventoryItemBtn', 'click', () => {
             showInventoryForm();
         });
 
-        document.getElementById('addFirstInventoryItemBtn').addEventListener('click', () => {
+        addEventListenerSafely('addFirstInventoryItemBtn', 'click', () => {
             showInventoryForm();
         });
 
-        document.getElementById('cancelInventoryBtn').addEventListener('click', () => {
+        addEventListenerSafely('cancelInventoryBtn', 'click', () => {
             hideInventoryForm();
         });
 
-        document.getElementById('saveInventoryBtn').addEventListener('click', () => {
+        addEventListenerSafely('saveInventoryBtn', 'click', () => {
             saveInventoryItem();
         });
 
         // Botón para exportar a Excel
-        document.getElementById('exportInventoryBtn').addEventListener('click', () => {
+        addEventListenerSafely('exportInventoryBtn', 'click', () => {
             exportInventoryToExcel();
         });
+
+        // Funciones para mostrar notificaciones sutiles
+        window.showNotification = (message, type = 'success', duration = 4000) => {
+            const container = document.getElementById('notificationContainer');
+            if (!container) return;
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+
+            // Iconos según el tipo
+            const icons = {
+                success: 'bi-check-circle-fill',
+                error: 'bi-x-circle-fill',
+                warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill'
+            };
+
+            notification.innerHTML = `
+                <i class="bi ${icons[type]} notification-icon"></i>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.remove()">
+                    <i class="bi bi-times"></i>
+                </button>
+            `;
+
+            container.appendChild(notification);
+
+            // Animación de entrada
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+
+            // Auto-eliminación
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, duration);
+        };
+
+        // Función global para editar proyecto (usada en onclick de la tabla)
+        window.openEditModal = (projectId) => {
+            const project = allProjects.find(p => p['Id Project'] === projectId);
+            if (project) {
+                setupModalForm(project); // Abrir modal en modo editar
+                projectModal?.show();
+            }
+        };
+
+        // Funciones para abrir inventario en nuevas pestañas
+        window.openInventoryGeneral = () => {
+            const url = `/inventory/general/`;
+            window.open(url, '_blank');
+        };
+
+        window.openInventoryProjectsInProgress = () => {
+            const url = `/inventory/projects-in-progress/`;
+            window.open(url, '_blank');
+        };
+
+        window.openInventoryProjectsFinished = () => {
+            const url = `/inventory/projects-finished/`;
+            window.open(url, '_blank');
+        };
 
         // Botón para maximizar/restaurar el modal de inventario
         const maximizeInventoryBtn = document.getElementById('maximizeInventoryBtn');
@@ -3260,21 +3607,38 @@ document.getElementById('saveProjectBtn').addEventListener('click', async (e) =>
                 const icon = maximizeInventoryBtn.querySelector('i');
 
                 modalDialog.classList.toggle('modal-fullscreen');
+                inventoryModalEl.classList.toggle('modal-fullscreen');
 
                 if (modalDialog.classList.contains('modal-fullscreen')) {
                     // Cambiar ícono a restaurar
                     icon.className = 'bi bi-arrows-angle-contract';
                     maximizeInventoryBtn.title = 'Restaurar';
 
-                    // Limpiar estilos de arrastre para que ocupe toda la pantalla correctamente
-                    modalDialog.style.top = '';
-                    modalDialog.style.left = '';
-                    modalDialog.style.position = '';
-                    modalDialog.style.margin = '';
+                    // Aplicar estilos de pantalla completa
+                    modalDialog.style.top = '0';
+                    modalDialog.style.left = '0';
+                    modalDialog.style.width = '100vw';
+                    modalDialog.style.height = '100vh';
+                    modalDialog.style.maxWidth = '100vw';
+                    modalDialog.style.maxHeight = '100vh';
+                    modalDialog.style.minWidth = '100vw';
+                    modalDialog.style.minHeight = '100vh';
+                    modalDialog.style.borderRadius = '0';
                 } else {
                     // Cambiar ícono a maximizar
                     icon.className = 'bi bi-arrows-fullscreen';
                     maximizeInventoryBtn.title = 'Maximizar';
+
+                    // Restaurar estilos originales
+                    modalDialog.style.top = '50px';
+                    modalDialog.style.left = '50px';
+                    modalDialog.style.width = '';
+                    modalDialog.style.height = '';
+                    modalDialog.style.maxWidth = '95vw';
+                    modalDialog.style.maxHeight = '95vh';
+                    modalDialog.style.minWidth = '600px';
+                    modalDialog.style.minHeight = '400px';
+                    modalDialog.style.borderRadius = '8px';
                 }
             });
         }

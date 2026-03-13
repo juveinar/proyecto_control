@@ -1,0 +1,513 @@
+{% extends "inventory/base.html" %}
+
+{% block title %}Inventario General - Portal de Control de Proyectos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .inventory-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+    }
+
+    .inventory-title {
+        font-size: 2.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .inventory-description {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+
+    .inventory-container {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 2rem;
+        border: 1px solid rgba(138, 43, 226, 0.3);
+    }
+
+    .inventory-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #8a2be2 0%, #6a1b9a 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(138, 43, 226, 0.3);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    .inventory-table {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(138, 43, 226, 0.2);
+    }
+
+    .inventory-table th {
+        background: linear-gradient(135deg, #8a2be2 0%, #6a1b9a 100%);
+        color: white;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        border: none;
+        padding: 1rem;
+    }
+
+    .inventory-table td {
+        color: #e0e0e0;
+        border-bottom: 1px solid rgba(138, 43, 226, 0.1);
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    .inventory-table tbody tr:hover {
+        background-color: rgba(138, 43, 226, 0.15);
+        transform: scale(1.01);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 400px;
+        color: white;
+        font-size: 1.2rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="inventory-header">
+        <div class="container">
+            <h1 class="inventory-title">
+                <i class="bi bi-server-fill me-3"></i>{{ title }}
+            </h1>
+            <p class="inventory-description">{{ description }}</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="inventory-container">
+            <!-- Statistics Cards -->
+            <div class="inventory-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalEquipments">-</div>
+                    <div class="stat-label">Total de Equipos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalProjects">-</div>
+                    <div class="stat-label">Proyectos con Inventario</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="activeEquipments">-</div>
+                    <div class="stat-label">Equipos Activos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalLocations">-</div>
+                    <div class="stat-label">Ubicaciones</div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="projectFilter" class="form-label">Filtrar por Proyecto</label>
+                        <select class="form-select" id="projectFilter">
+                            <option value="">Todos los proyectos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="locationFilter" class="form-label">Filtrar por Ubicación</label>
+                        <select class="form-select" id="locationFilter">
+                            <option value="">Todas las ubicaciones</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="typeFilter" class="form-label">Filtrar por Tipo</label>
+                        <select class="form-select" id="typeFilter">
+                            <option value="">Todos los tipos</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search and Actions -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="form-group">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="searchInput" placeholder="Buscar por hostname, código, OT, IP...">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" id="exportBtn">
+                            <i class="bi bi-download me-2"></i>Exportar Excel
+                        </button>
+                        <button class="btn btn-outline-secondary" id="refreshBtn">
+                            <i class="bi bi-arrow-clockwise me-2"></i>Actualizar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Table -->
+            <div id="inventoryContent">
+                <div class="loading-spinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <div class="ms-3">Cargando inventario...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class InventoryGeneral {
+    constructor() {
+        this.inventory = [];
+        this.projects = [];
+        this.filteredInventory = [];
+        this.init();
+    }
+
+    async init() {
+        await this.loadData();
+        this.renderFilters();
+        this.renderTable();
+        this.attachEventListeners();
+    }
+
+    async loadData() {
+        try {
+            // Cargar todos los proyectos
+            const projectsResponse = await fetch('/api/projects');
+            this.projects = await projectsResponse.json();
+
+            // Cargar todo el inventario usando la nueva API
+            const inventoryResponse = await fetch('/api/inventario/all');
+            const inventoryData = await inventoryResponse.json();
+
+            // Asegurar que inventoryData sea un array
+            this.inventory = Array.isArray(inventoryData) ? inventoryData : [];
+
+            this.filteredInventory = [...this.inventory];
+            this.updateStatistics();
+        } catch (error) {
+            console.error('Error loading data:', error);
+            this.showError('Error al cargar los datos');
+        }
+    }
+
+    updateStatistics() {
+        // Total de equipos
+        document.getElementById('totalEquipments').textContent = this.inventory.length;
+
+        // Proyectos con inventario
+        const projectsWithInventory = new Set(this.inventory.map(item => item.proyecto_id));
+        document.getElementById('totalProjects').textContent = projectsWithInventory.size;
+
+        // Equipos activos (consideramos activos los que tienen hostname)
+        const activeEquipments = this.inventory.filter(item => item.hostname);
+        document.getElementById('activeEquipments').textContent = activeEquipments.length;
+
+        // Ubicaciones únicas
+        const locations = new Set(this.inventory.map(item => item.ubicacion).filter(Boolean));
+        document.getElementById('totalLocations').textContent = locations.size;
+    }
+
+    renderFilters() {
+        // Filtro de proyectos
+        const projectFilter = document.getElementById('projectFilter');
+        const projectIds = [...new Set(this.inventory.map(item => item.proyecto_id))];
+        projectIds.forEach(projectId => {
+            const project = this.projects.find(p => p.id === projectId || p['Id Project'] === projectId);
+            if (project) {
+                const option = document.createElement('option');
+                option.value = projectId;
+                option.textContent = project.project || project['Project'] || `Proyecto ${projectId}`;
+                projectFilter.appendChild(option);
+            }
+        });
+
+        // Filtro de ubicaciones
+        const locationFilter = document.getElementById('locationFilter');
+        const locations = [...new Set(this.inventory.map(item => item.ubicacion).filter(Boolean))];
+        locations.sort().forEach(location => {
+            const option = document.createElement('option');
+            option.value = location;
+            option.textContent = location;
+            locationFilter.appendChild(option);
+        });
+
+        // Filtro de tipos
+        const typeFilter = document.getElementById('typeFilter');
+        const types = [...new Set(this.inventory.map(item => item.tipo_equipo).filter(Boolean))];
+        types.sort().forEach(type => {
+            const option = document.createElement('option');
+            option.value = type;
+            option.textContent = type;
+            typeFilter.appendChild(option);
+        });
+    }
+
+    renderTable() {
+        const container = document.getElementById('inventoryContent');
+
+        if (this.filteredInventory.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-server"></i>
+                    <h3>No se encontraron equipos</h3>
+                    <p>No hay equipos que coincidan con los filtros seleccionados.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const tableHTML = `
+            <div class="table-responsive">
+                <table class="table inventory-table">
+                    <thead>
+                        <tr>
+                            <th>Proyecto</th>
+                            <th>Ubicación</th>
+                            <th>OT</th>
+                            <th>Código</th>
+                            <th>Hostname</th>
+                            <th>Tipo</th>
+                            <th>CPU</th>
+                            <th>RAM</th>
+                            <th>Disco SO</th>
+                            <th>Disco Pag</th>
+                            <th>Disco Data</th>
+                            <th>IP Gestión</th>
+                            <th>IP Servicios</th>
+                            <th>IP Producción</th>
+                            <th>IP Adicional 1</th>
+                            <th>IP Adicional 2</th>
+                            <th>Sistema Operativo</th>
+                            <th>Referencia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.filteredInventory.map(item => this.renderRow(item)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.innerHTML = tableHTML;
+    }
+
+    renderRow(item) {
+        const project = this.projects.find(p => p.id === item.proyecto_id || p['Id Project'] === item.proyecto_id);
+        const projectName = project ? (project.project || project['Project']) : `Proyecto ${item.proyecto_id}`;
+        const projectRF = project ? (project.rf || project['RF'] || '-') : '-';
+
+        return `
+            <tr>
+                <td>
+                    <div class="fw-bold">${projectName}</div>
+                    <small class="text-muted">${projectRF}</small>
+                </td>
+                <td>${item.ubicacion || '-'}</td>
+                <td>${item.ot || '-'}</td>
+                <td><code>${item.codigo || '-'}</code></td>
+                <td><strong>${item.hostname || '-'}</strong></td>
+                <td><span class="badge bg-info">${item.tipo_equipo || '-'}</span></td>
+                <td>${item.cpu || '-'}</td>
+                <td>${item.ram || '-'}</td>
+                <td>${item.disco_so || '-'}</td>
+                <td>${item.disco_pag || '-'}</td>
+                <td>${item.disco_data || '-'}</td>
+                <td><code>${item.ip_gestion || '-'}</code></td>
+                <td><code>${item.ip_servicios || '-'}</code></td>
+                <td><code>${item.ip_produccion || '-'}</code></td>
+                <td><code>${item.ip_adicional_1 || '-'}</code></td>
+                <td><code>${item.ip_adicional_2 || '-'}</code></td>
+                <td>${item.sistema_operativo || '-'}</td>
+                <td><small>${item.referencia || '-'}</small></td>
+            </tr>
+        `;
+    }
+
+    applyFilters() {
+        const projectFilterEl = document.getElementById('projectFilter');
+        const locationFilterEl = document.getElementById('locationFilter');
+        const typeFilterEl = document.getElementById('typeFilter');
+        const searchInputEl = document.getElementById('searchInput');
+
+        const projectFilter = projectFilterEl ? projectFilterEl.value : '';
+        const locationFilter = locationFilterEl ? locationFilterEl.value : '';
+        const typeFilter = typeFilterEl ? typeFilterEl.value : '';
+        const searchTerm = searchInputEl ? searchInputEl.value.toLowerCase() : '';
+
+        this.filteredInventory = this.inventory.filter(item => {
+            // Filtro de proyecto
+            if (projectFilter && item.proyecto_id != projectFilter) return false;
+
+            // Filtro de ubicación
+            if (locationFilter && item.ubicacion !== locationFilter) return false;
+
+            // Filtro de tipo
+            if (typeFilter && item.tipo_equipo !== typeFilter) return false;
+
+            // Búsqueda
+            if (searchTerm) {
+                const searchableText = [
+                    item.hostname,
+                    item.codigo,
+                    item.ot,
+                    item.ubicacion,
+                    item.referencia,
+                    item.ip_gestion,
+                    item.ip_servicios,
+                    item.ip_produccion,
+                    item.ip_adicional_1,
+                    item.ip_adicional_2
+                ].filter(Boolean).join(' ').toLowerCase();
+
+                if (!searchableText.includes(searchTerm)) return false;
+            }
+
+            return true;
+        });
+
+        this.renderTable();
+    }
+
+    attachEventListeners() {
+        // Filtros
+        const projectFilter = document.getElementById('projectFilter');
+        if (projectFilter) projectFilter.addEventListener('change', () => this.applyFilters());
+
+        const locationFilter = document.getElementById('locationFilter');
+        if (locationFilter) locationFilter.addEventListener('change', () => this.applyFilters());
+
+        const typeFilter = document.getElementById('typeFilter');
+        if (typeFilter) typeFilter.addEventListener('change', () => this.applyFilters());
+
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.addEventListener('input', () => this.applyFilters());
+
+        // Botones
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) refreshBtn.addEventListener('click', () => this.loadData());
+
+        const exportBtn = document.getElementById('exportBtn');
+        if (exportBtn) exportBtn.addEventListener('click', () => this.exportToExcel());
+    }
+
+    async exportToExcel() {
+        try {
+            // XLSX ya está cargado globalmente desde base.html línea 19
+            const XLSX = window.XLSX;
+
+            const data = this.filteredInventory.map(item => {
+                const project = this.projects.find(p => p.id === item.proyecto_id || p['Id Project'] === item.proyecto_id);
+                return {
+                    'Proyecto': project ? (project.project || project['Project']) : `Proyecto ${item.proyecto_id}`,
+                    'Proyecto ID': item.proyecto_id,
+                    'Ubicación': item.ubicacion || '',
+                    'OT': item.ot || '',
+                    'Código': item.codigo || '',
+                    'Hostname': item.hostname || '',
+                    'Tipo Equipo': item.tipo_equipo || '',
+                    'CPU': item.cpu || '',
+                    'RAM': item.ram || '',
+                    'Disco SO': item.disco_so || '',
+                    'Disco Pag': item.disco_pag || '',
+                    'Disco Data': item.disco_data || '',
+                    'IP Gestión': item.ip_gestion || '',
+                    'IP Servicios': item.ip_servicios || '',
+                    'IP Producción': item.ip_produccion || '',
+                    'IP Adicional 1': item.ip_adicional_1 || '',
+                    'IP Adicional 2': item.ip_adicional_2 || '',
+                    'Sistema Operativo': item.sistema_operativo || '',
+                    'Referencia': item.referencia || ''
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Inventario General');
+
+            const fileName = `Inventario_General_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+        } catch (error) {
+            console.error('Error exporting to Excel:', error);
+            alert('Error al exportar a Excel');
+        }
+    }
+
+    showError(message) {
+        const container = document.getElementById('inventoryContent');
+        container.innerHTML = `
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                ${message}
+            </div>
+        `;
+    }
+}
+
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', () => {
+    new InventoryGeneral();
+});
+</script>
+{% endblock %}

@@ -800,6 +800,43 @@ def api_contacts_simple(request):
 
 
 @login_required
+@require_http_methods(["GET"])
+def api_inventario_all(request):
+    """Obtener todo el inventario de equipos de todos los proyectos."""
+    try:
+        inventario = ControlProyectosInventario.objects.select_related('proyecto').all().order_by('proyecto__id_project', 'hostname', 'tipo_equipo')
+        inventario_list = []
+        for item in inventario:
+            inventario_list.append({
+                'id': item.id,
+                'proyecto_id': item.proyecto.id_project if item.proyecto else None,
+                'proyecto_nombre': item.proyecto.project if item.proyecto else '',
+                'ubicacion': item.ubicacion,
+                'ot': item.ot,
+                'codigo': item.codigo,
+                'hostname': item.hostname,
+                'tipo_equipo': item.tipo_equipo,
+                'cpu': item.cpu,
+                'ram': item.ram,
+                'disco_so': item.disco_so,
+                'disco_pag': item.disco_pag,
+                'disco_data': item.disco_data,
+                'ip_gestion': item.ip_gestion,
+                'ip_servicios': item.ip_servicios,
+                'ip_produccion': item.ip_produccion,
+                'ip_adicional_1': item.ip_adicional_1,
+                'ip_adicional_2': item.ip_adicional_2,
+                'sistema_operativo': item.sistema_operativo,
+                'referencia': item.referencia,
+                'created_at': item.created_at.isoformat() if item.created_at else None,
+                'updated_at': item.updated_at.isoformat() if item.updated_at else None,
+            })
+        return JsonResponse(inventario_list, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def api_inventario(request):
     """Obtener inventario de equipos de un proyecto o crear uno nuevo."""
@@ -1186,3 +1223,30 @@ def generar_informe_ia(request):
             return JsonResponse({'success': False, 'message': f'Error al renderizar el informe: {str(e)}'}, status=500)
 
     return render(request, 'informe.html', {'informe': informe_html})
+
+
+@login_required
+def inventory_general(request):
+    """Vista para mostrar el inventario general de todos los proyectos."""
+    return render(request, 'inventory/general.html', {
+        'title': 'Inventario General',
+        'description': 'Vista completa de todo el inventario de equipos'
+    })
+
+
+@login_required
+def inventory_projects_in_progress(request):
+    """Vista para mostrar el inventario de proyectos en curso."""
+    return render(request, 'inventory/projects_in_progress.html', {
+        'title': 'Inventario de Proyectos en Curso',
+        'description': 'Equipos de proyectos que están actualmente en desarrollo o ejecución'
+    })
+
+
+@login_required
+def inventory_projects_finished(request):
+    """Vista para mostrar el inventario de proyectos finalizados y cerrados."""
+    return render(request, 'inventory/projects_finished.html', {
+        'title': 'Inventario de Proyectos Finalizados',
+        'description': 'Equipos de proyectos que han sido finalizados y cerrados'
+    })

@@ -28,5 +28,11 @@ urlpatterns = [
 
     # API de Inventario
     path('api/inventario', views.api_inventario, name='api_inventario'),
+    path('api/inventario/all', views.api_inventario_all, name='api_inventario_all'),
     path('api/inventario/<int:pk>', views.api_inventario_detail, name='api_inventario_detail'),
+
+    # Páginas de Inventario
+    path('inventory/general/', views.inventory_general, name='inventory_general'),
+    path('inventory/projects-in-progress/', views.inventory_projects_in_progress, name='inventory_projects_in_progress'),
+    path('inventory/projects-finished/', views.inventory_projects_finished, name='inventory_projects_finished'),
 ]

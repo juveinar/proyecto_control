@@ -1,0 +1,556 @@
+{% extends "inventory/base.html" %}
+
+{% block title %}Inventario de Proyectos en Curso - Portal de Control de Proyectos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .inventory-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 12px;
+    }
+
+    .inventory-title {
+        font-size: 2.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .inventory-description {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+
+    .inventory-container {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 2rem;
+        border: 1px solid rgba(138, 43, 226, 0.3);
+    }
+
+    .inventory-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #8a2be2 0%, #6a1b9a 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(138, 43, 226, 0.3);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 400px;
+        color: white;
+        font-size: 1.2rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="inventory-header">
+        <div class="container">
+            <h1 class="inventory-title">
+                <i class="bi bi-server-fill me-3"></i>{{ title }}
+            </h1>
+            <p class="inventory-description">{{ description }}</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="inventory-container">
+            <!-- Statistics Cards -->
+            <div class="inventory-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="activeProjects">-</div>
+                    <div class="stat-label">Proyectos Activos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalEquipments">-</div>
+                    <div class="stat-label">Total de Equipos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="deployingProjects">-</div>
+                    <div class="stat-label">Proyectos en Despliegue</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avgEquipmentsPerProject">-</div>
+                    <div class="stat-label">Equipos Físicos</div>
+                </div>
+            </div>
+
+            <!-- Project Cards View -->
+            <div class="row" id="projectsContainer">
+                <div class="col-12">
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <div class="ms-3">Cargando proyectos activos...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class InventoryProjectsInProgress {
+    constructor() {
+        this.projects = [];
+        this.inventory = [];
+        this.init();
+    }
+
+    async init() {
+        await this.loadData();
+        this.renderProjects();
+        this.attachEventListeners();
+    }
+
+    async loadData() {
+        try {
+            // Cargar todos los proyectos para debug
+            const projectsResponse = await fetch('/api/projects');
+            const allProjects = await projectsResponse.json();
+
+            // Mostrar información completa de todos los proyectos para debug
+            console.log('=== DEBUG DE PROYECTOS ===');
+            console.log('Total de proyectos:', allProjects.length);
+            allProjects.forEach((project, index) => {
+                console.log(`Proyecto ${index + 1}:`, {
+                    id: project['Id Project'],
+                    nombre: project['Project'],
+                    estado: project['Estado'],
+                    lider: project['Project Leader'],
+                    start: project['Start'],
+                    finish: project['Finish']
+                });
+            });
+
+            // Mostrar todos los estados disponibles
+            const allStates = [...new Set(allProjects.map(p => p['Estado']).filter(Boolean))];
+            console.log('Todos los estados disponibles:', allStates);
+
+            // Filtrar proyectos que están en curso (activos)
+            const activeStates = [
+                'En Curso', 'Despliegue', 'Desarrollo', 'Pruebas',
+                'Implementación', 'Configuración', 'Análisis', 'Diseño',
+                'Planificación', 'Ejecución', 'Testing', 'Producción'
+            ];
+
+            this.projects = allProjects.filter(project => {
+                const estado = project['Estado'] || '';
+                return activeStates.includes(estado) ||
+                       (!['Finalizado', 'Cerrado', 'Cancelado'].includes(estado) && estado.trim() !== '');
+            });
+
+            console.log('Proyectos en curso encontrados:', this.projects.length);
+            console.log('Estados de proyectos activos:', this.projects.map(p => p['Estado']));
+
+            // Cargar inventario usando la nueva API
+            const inventoryResponse = await fetch('/api/inventario/all');
+            const inventoryData = await inventoryResponse.json();
+
+            // Asegurar que inventoryData sea un array
+            this.inventory = Array.isArray(inventoryData) ? inventoryData : [];
+
+            // Mostrar información del inventario
+            console.log('Total de items en inventario:', this.inventory.length);
+            const projectIdsWithInventory = [...new Set(this.inventory.map(item => item.proyecto_id))];
+            console.log('Proyectos con inventario:', projectIdsWithInventory);
+
+            this.updateStatistics();
+        } catch (error) {
+            console.error('Error loading data:', error);
+            this.showError('Error al cargar los datos');
+        }
+    }
+
+    updateStatistics() {
+        // Proyectos activos
+        document.getElementById('activeProjects').textContent = this.projects.length;
+
+        // Total de equipos en proyectos activos
+        const projectIds = this.projects.map(p => p['Id Project']);
+        const activeInventory = this.inventory.filter(item => projectIds.includes(item.proyecto_id));
+        document.getElementById('totalEquipments').textContent = activeInventory.length;
+
+        // Proyectos en despliegue (basado en estado o fecha de fase reciente)
+        const deployingStates = [
+            'Despliegue', 'Implementación', 'Producción', 'Configuración',
+            'Ejecución', 'Testing', 'Pruebas', 'Desarrollo', 'En Curso'
+        ];
+
+        const deployingProjects = this.projects.filter(p => {
+            const estado = p['Estado'] || '';
+
+            // Primero verificar si el estado actual es de despliegue
+            if (deployingStates.includes(estado)) {
+                return true;
+            }
+
+            // Si no, verificar si tiene una fecha de fase reciente (últimos 30 días)
+            const faseDate = p['Fase'] || p['fase_date'] || p['Start'] || p['start'];
+            if (faseDate) {
+                const phaseDate = new Date(faseDate);
+                const today = new Date();
+                const daysDiff = Math.ceil((today - phaseDate) / (1000 * 60 * 60 * 24));
+
+                // Considerar proyectos con fase iniciada en los últimos 30 días como "en despliegue"
+                return daysDiff <= 30 && daysDiff >= 0;
+            }
+
+            return false;
+        });
+
+        console.log('Proyectos en despliegue encontrados:', deployingProjects.length);
+        console.log('Detalles proyectos en despliegue:', deployingProjects.map(p => ({
+            nombre: p['Project'],
+            estado: p['Estado'],
+            fecha: p['Fase'] || p['fase_date'] || p['Start'] || p['start']
+        })));
+
+        document.getElementById('deployingProjects').textContent = deployingProjects.length;
+
+        // Equipos Físicos (máquinas físicas y appliances físicos)
+        // Filtrar equipos físicos y appliances físicos
+        const physicalEquipments = activeInventory.filter(item => {
+            const tipo = (item.tipo_equipo || '').toLowerCase();
+            const hostname = (item.hostname || '').toLowerCase();
+
+            // Considerar equipos físicos si:
+            // 1. Tipo contiene palabras clave de equipos físicos
+            // 2. Hostname no indica virtualización
+            const physicalTypes = [
+                'servidor', 'server', 'rack', 'blade', 'torre', 'tower',
+                'storage', 'san', 'nas', 'appliance', 'firewall',
+                'switch', 'router', 'físico', 'physical', 'desktop',
+                'laptop', 'notebook', 'workstation'
+            ];
+
+            const virtualIndicators = [
+                'vm', 'virtual', 'vcenter', 'esxi', 'hyperv',
+                'docker', 'container', 'kube', 'kvm'
+            ];
+
+            // Es físico si cumple con tipo físico Y no es virtual
+            const isPhysicalType = physicalTypes.some(type => tipo.includes(type));
+            const isVirtualHost = virtualIndicators.some(indicator => hostname.includes(indicator));
+
+            return isPhysicalType && !isVirtualHost;
+        });
+
+        document.getElementById('avgEquipmentsPerProject').textContent = physicalEquipments.length;
+    }
+
+    renderProjects() {
+        const container = document.getElementById('projectsContainer');
+
+        if (this.projects.length === 0) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="bi bi-hourglass-split"></i>
+                        <h3>No hay proyectos en curso</h3>
+                        <p>No se encontraron proyectos activos en este momento.</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const projectsHTML = this.projects.map(project => this.renderProjectCard(project)).join('');
+        container.innerHTML = projectsHTML;
+
+        // Inicializar tooltips y otros componentes
+        this.initializeComponents();
+    }
+
+    renderProjectCard(project) {
+        const projectInventory = this.inventory.filter(item => item.proyecto_id === project['Id Project']);
+        const hasInventory = projectInventory.length > 0;
+
+        return `
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card h-100 border-primary" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">${project['Project'] || `Proyecto ${project['Id Project']}`}</h5>
+                            <span class="badge bg-light text-primary">${project['Estado']}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <small class="text-muted">Fase</small>
+                                <div class="fw-bold">${project['Fase'] || project['fase_date'] || 'No definida'}</div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Equipos</small>
+                                <div class="fw-bold">${projectInventory.length}</div>
+                            </div>
+                        </div>
+
+                        ${project['Start'] ? `
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <small class="text-muted">Inicio</small>
+                                <div>${new Date(project['Start']).toLocaleDateString('es-ES')}</div>
+                            </div>
+                            ${project['Finish'] ? `
+                            <div class="col-6">
+                                <small class="text-muted">Fin Estimado</small>
+                                <div>${new Date(project['Finish']).toLocaleDateString('es-ES')}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        ` : ''}
+
+                        ${project['Project Leader'] ? `
+                        <div class="mb-3">
+                            <small class="text-muted">Líder de Proyecto</small>
+                            <div>${project['Project Leader']}</div>
+                        </div>
+                        ` : ''}
+
+                        <div class="d-flex gap-2">
+                            ${hasInventory ? `
+                                <button class="btn btn-sm btn-outline-primary" onclick="window.viewProjectInventory(${project['Id Project']})">
+                                    <i class="bi bi-server me-1"></i>Ver Inventario
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" onclick="window.exportProjectInventory(${project['Id Project']})">
+                                    <i class="bi bi-download me-1"></i>Exportar
+                                </button>
+                            ` : `
+                                <button class="btn btn-sm btn-outline-secondary" disabled>
+                                    <i class="bi bi-server me-1"></i>Sin Inventario
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    initializeComponents() {
+        // Inicializar tooltips de Bootstrap si están disponibles
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+    }
+
+    attachEventListeners() {
+        // Botón de actualizar
+        const refreshBtn = document.createElement('button');
+        refreshBtn.className = 'btn btn-outline-primary position-fixed';
+        refreshBtn.style.cssText = 'bottom: 20px; right: 20px; z-index: 1000;';
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Actualizar';
+
+        // Agregar event listener al botón creado dinámicamente
+        refreshBtn.addEventListener('click', () => this.loadData());
+        document.body.appendChild(refreshBtn);
+    }
+
+    showError(message) {
+        const container = document.getElementById('projectsContainer');
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    ${message}
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Funciones globales para los botones
+window.viewProjectInventory = async (projectId) => {
+    try {
+        const response = await fetch(`/api/inventario?proyecto_id=${projectId}`);
+        const inventory = await response.json();
+
+        if (inventory.length === 0) {
+            alert('Este proyecto no tiene equipos en el inventario.');
+            return;
+        }
+
+        // Crear modal para mostrar el inventario
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Inventario del Proyecto ${projectId}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Ubicación</th>
+                                        <th>OT</th>
+                                        <th>Código</th>
+                                        <th>Hostname</th>
+                                        <th>Tipo</th>
+                                        <th>CPU</th>
+                                        <th>RAM</th>
+                                        <th>Disco SO</th>
+                                        <th>Disco Pag</th>
+                                        <th>Disco Data</th>
+                                        <th>IP Gestión</th>
+                                        <th>IP Servicios</th>
+                                        <th>IP Producción</th>
+                                        <th>IP Adicional 1</th>
+                                        <th>IP Adicional 2</th>
+                                        <th>Sistema Operativo</th>
+                                        <th>Referencia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${inventory.map(item => `
+                                        <tr>
+                                            <td>${item.ubicacion || '-'}</td>
+                                            <td>${item.ot || '-'}</td>
+                                            <td><code>${item.codigo || '-'}</code></td>
+                                            <td><strong>${item.hostname || '-'}</strong></td>
+                                            <td><span class="badge bg-info">${item.tipo_equipo || '-'}</span></td>
+                                            <td>${item.cpu || '-'}</td>
+                                            <td>${item.ram || '-'}</td>
+                                            <td>${item.disco_so || '-'}</td>
+                                            <td>${item.disco_pag || '-'}</td>
+                                            <td>${item.disco_data || '-'}</td>
+                                            <td><code>${item.ip_gestion || '-'}</code></td>
+                                            <td><code>${item.ip_servicios || '-'}</code></td>
+                                            <td><code>${item.ip_produccion || '-'}</code></td>
+                                            <td><code>${item.ip_adicional_1 || '-'}</code></td>
+                                            <td><code>${item.ip_adicional_2 || '-'}</code></td>
+                                            <td>${item.sistema_operativo || '-'}</td>
+                                            <td><small>${item.referencia || '-'}</small></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+
+        // Limpiar cuando se cierre el modal
+        modal.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modal);
+        });
+
+    } catch (error) {
+        console.error('Error loading project inventory:', error);
+        alert('Error al cargar el inventario del proyecto');
+    }
+};
+
+window.exportProjectInventory = async (projectId) => {
+    try {
+        // XLSX ya está cargado globalmente desde base.html línea 19
+        const XLSX = window.XLSX;
+
+        if (!XLSX) {
+            throw new Error('XLSX library not available');
+        }
+
+        const response = await fetch(`/api/inventario?proyecto_id=${projectId}`);
+        const inventory = await response.json();
+
+        if (inventory.length === 0) {
+            alert('Este proyecto no tiene equipos para exportar.');
+            return;
+        }
+
+        const data = inventory.map(item => ({
+            'Ubicación': item.ubicacion || '',
+            'OT': item.ot || '',
+            'Código': item.codigo || '',
+            'Hostname': item.hostname || '',
+            'Tipo Equipo': item.tipo_equipo || '',
+            'CPU': item.cpu || '',
+            'RAM': item.ram || '',
+            'Disco SO': item.disco_so || '',
+            'Disco Pag': item.disco_pag || '',
+            'Disco Data': item.disco_data || '',
+            'IP Gestión': item.ip_gestion || '',
+            'IP Servicios': item.ip_servicios || '',
+            'IP Producción': item.ip_produccion || '',
+            'IP Adicional 1': item.ip_adicional_1 || '',
+            'IP Adicional 2': item.ip_adicional_2 || '',
+            'Sistema Operativo': item.sistema_operativo || '',
+            'Referencia': item.referencia || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+
+        const fileName = `Inventario_Proyecto_${projectId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+
+    } catch (error) {
+        console.error('Error exporting:', error);
+        alert('Error al exportar el inventario');
+    }
+};
+
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', () => {
+    new InventoryProjectsInProgress();
+});
+</script>
+{% endblock %}
