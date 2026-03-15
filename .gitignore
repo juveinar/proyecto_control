@@ -19,4 +19,5 @@ dist/
 # Logs
 *.log
 
-
+# uso memoria persistente con Engram
+.windsurfrules
