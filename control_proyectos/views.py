@@ -555,6 +555,7 @@ def api_projects_update_status(request, project_id):
             'UCMDB': 'ucmdb',
             'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)': 'conectividad_awx',
             'CAMBIO PASO OPERACIÓN (OLA)': 'cambio_paso_operacion_ola',
+            'WINDOWS LICENCIA ACTIVADA': 'windows_licencia_activada',
         }
 
         # Buscar el campo en el mapeo (case-insensitive)
