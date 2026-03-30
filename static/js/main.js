@@ -207,6 +207,7 @@ const detailColumns = [
             'SCAN',
             'Base de Datos',
             'Balanceo',
+            'INVENTARIO',
             'Backup',
             'PLATAFORMA BACKUP',
             'CONFIG BACKUP',
@@ -710,7 +711,7 @@ const detailColumns = [
 
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
-                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
+                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Base de Datos', 'Balanceo', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
 
@@ -870,7 +871,7 @@ const detailColumns = [
 
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
-                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Computo'],
+                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Base de Datos', 'Balanceo', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
 

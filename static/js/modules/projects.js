@@ -19,6 +19,7 @@ async function fetchProjects() {
         const response = await fetch('/api/projects');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
         allProjects = await response.json();
+
         if (allProjects.length > 0) {
             // Obtiene los nombres de las columnas del primer proyecto
             allColumns = Object.keys(allProjects[0]);
@@ -67,11 +68,11 @@ function renderTable() {
     const finishedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'finalizado').length;
     const notFinishedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'en curso').length;
     const closedCount = projectsToDisplay.filter(p => p.Estado && String(p.Estado).trim().toLowerCase() === 'cerrado').length;
-    
+
     const finishedCountEl = document.getElementById('finished-count');
     const notFinishedCountEl = document.getElementById('not-finished-count');
     const closedCountEl = document.getElementById('closed-count');
-    
+
     if (finishedCountEl) finishedCountEl.textContent = finishedCount;
     if (notFinishedCountEl) notFinishedCountEl.textContent = notFinishedCount;
     if (closedCountEl) closedCountEl.textContent = closedCount;
@@ -110,21 +111,21 @@ function renderTable() {
         const tr = document.createElement('tr');
         tr.dataset.id = project['Id Project'];
         let cells = '';
-        
+
         const visibleColumns = ['Id Project', 'Project', 'Estado', 'Fase', 'Start', 'Finish', 'RF'];
-        
+
         visibleColumns.forEach(col => {
             let value = project[col] ?? '-';
             let cellContent = getStyledContent(value);
             // Si la fecha de fin es anterior a hoy, la resalta en rojo
             if (col === 'Finish' && value !== '-' && cellContent === value) {
-                const today = new Date(); 
+                const today = new Date();
                 today.setHours(0,0,0,0);
                 if (new Date(value) < today) cellContent = `<span class="overdue">${value}</span>`;
             }
             cells += `<td>${cellContent}</td>`;
         });
-        
+
         cells += `<td><span title="Ver Detalles" onclick="openDetailsModal(${project['Id Project']})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye-fill text-info action-icons" viewBox="0 0 16 16"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg></span><span title="Editar" onclick="openEditModal(${project['Id Project']})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square text-primary action-icons" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.813z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg></span></td>`;
         tr.innerHTML = cells;
         tableBody.appendChild(tr);
@@ -185,14 +186,22 @@ function populateYearSelector() {
  */
 function setupModalForm(project = {}) {
     const isEdit = project && project['Id Project'];
+
+    console.log('=== DEBUG SETUP MODAL FORM ===');
+    console.log('isEdit:', isEdit);
+    console.log('Proyecto:', project);
+    console.log('Base de Datos:', project['Base de Datos']);
+    console.log('Balanceo:', project['Balanceo']);
+    console.log('=== FIN DEBUG SETUP MODAL FORM ===');
+
     const projectModalLabel = document.getElementById('projectModalLabel');
     const backToDetailsBtn = document.getElementById('backToDetailsBtn');
     const faseSection = document.getElementById('fase-control-section');
-    
+
     if (projectModalLabel) {
         projectModalLabel.textContent = isEdit ? `Editar Proyecto: ${project.Project}` : 'Agregar Nuevo Proyecto';
     }
-    
+
     if (backToDetailsBtn) {
         backToDetailsBtn.style.display = isEdit ? 'inline-block' : 'none';
     }
@@ -214,15 +223,24 @@ function setupModalForm(project = {}) {
 
     const fieldGroups = {
         'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
-        'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
+        'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Base de Datos', 'Balanceo', 'Computo'],
         'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
     };
+
+    console.log('=== DEBUG FIELD GROUPS EN SETUP ===');
+    console.log('fieldGroups:', fieldGroups);
+    console.log('=== FIN DEBUG FIELD GROUPS EN SETUP ===');
 
     const addProjectFields = ['Id Project', 'Project', 'Estado', 'Start', 'Finish', 'RF', 'CONTACTO', 'OBSERVACIONES'];
     const editExcludeFields = ['% Complete', 'Unnamed: 22', 'External Costs'];
     const masterFieldOrder = [
         'Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'WINDOWS LICENCIA ACTIVADA', 'DOMINIO', 'NTP', 'Antivirus', 'SCAN', 'Base de Datos', 'Balanceo', 'Backup', 'PLATAFORMA BACKUP', 'CONFIG BACKUP', 'PROVEEDOR', 'COMUNIDAD SNMP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)', 'RT', 'SERVICIO', 'CAMBIO', 'Computo'
     ];
+
+    console.log('=== DEBUG MASTER FIELD ORDER ===');
+    console.log('masterFieldOrder incluye Base de Datos:', masterFieldOrder.includes('Base de Datos'));
+    console.log('masterFieldOrder incluye Balanceo:', masterFieldOrder.includes('Balanceo'));
+    console.log('=== FIN DEBUG MASTER FIELD ORDER ===');
 
     const generateFieldHtml = (col, proj) => {
         const dataKey = col === 'CAMBIO' ? 'CAMBIO PASO OPERACIÓN (OLA)' : col;
@@ -239,7 +257,7 @@ function setupModalForm(project = {}) {
             if (lowerCaseValue === 'finalizado') currentStatus = 'Finalizado';
             else if (lowerCaseValue === 'cerrado') currentStatus = 'Cerrado';
             else if (lowerCaseValue === 'suspendido') currentStatus = 'Suspendido';
-            
+
             fieldHtml += `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><select class="form-select" id="field-${col}" name="${col}">`;
             for (const optValue in options) {
                 fieldHtml += `<option value="${optValue}" ${currentStatus === optValue ? 'selected' : ''}>${options[optValue]}</option>`;
@@ -301,10 +319,21 @@ function setupModalForm(project = {}) {
                     <div class="accordion-body"><div class="row">`;
 
         fields.forEach(col => {
+            console.log(`--- SETUP Procesando campo: ${col} ---`);
+            console.log(`isEdit: ${isEdit}`);
+            console.log(`masterFieldOrder.includes(col): ${masterFieldOrder.includes(col)}`);
+            console.log(`addProjectFields.includes(col): ${addProjectFields.includes(col)}`);
+            console.log(`editExcludeFields.includes(col): ${editExcludeFields.includes(col)}`);
+
             if ((isEdit && masterFieldOrder.includes(col)) || (!isEdit && addProjectFields.includes(col))) {
                if (!editExcludeFields.includes(col)) {
+                   console.log(`✅ SETUP Generando HTML para campo: ${col}`);
                    accordionHtml += generateFieldHtml(col, project);
+               } else {
+                   console.log(`❌ SETUP Campo excluido: ${col}`);
                }
+            } else {
+                console.log(`❌ SETUP Campo no cumple condiciones: ${col}`);
             }
         });
 
@@ -350,6 +379,14 @@ function showProjectDetails(projectId) {
         return;
     }
 
+    // Debug: Verificar los campos para este proyecto específico
+    console.log('=== DEBUG SHOW PROJECT DETAILS ===');
+    console.log('Proyecto seleccionado ID:', projectId);
+    console.log('Proyecto completo:', project);
+    console.log('Base de Datos:', project['Base de Datos']);
+    console.log('Balanceo:', project['Balanceo']);
+    console.log('=== FIN DEBUG ===');
+
     const detailsModalLabel = document.getElementById('detailsModalLabel');
     const editFromDetailsBtn = document.getElementById('editFromDetailsBtn');
     const detailsBody = document.getElementById('detailsModalBody');
@@ -365,13 +402,20 @@ function showProjectDetails(projectId) {
 
     const fieldGroups = {
         'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
-        'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Computo'],
+        'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'Base de Datos', 'Balanceo', 'Computo'],
         'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
     };
+
+    console.log('=== DEBUG FIELD GROUPS ===');
+    console.log('fieldGroups:', fieldGroups);
+    console.log('=== FIN DEBUG FIELD GROUPS ===');
 
     let detailsHtml = '<div class="accordion" id="detailsAccordion">';
 
     Object.entries(fieldGroups).forEach(([groupName, fields], index) => {
+        console.log(`=== PROCESANDO GRUPO: ${groupName} ===`);
+        console.log('Campos en este grupo:', fields);
+
         const accordionId = `details-collapse-${index}`;
         const headerId = `details-header-${index}`;
 
@@ -387,6 +431,12 @@ function showProjectDetails(projectId) {
 
         fields.forEach(col => {
             const dataKey = col === 'CAMBIO' ? 'CAMBIO PASO OPERACIÓN (OLA)' : col;
+
+            console.log(`--- Procesando campo: ${col} ---`);
+            console.log(`dataKey: ${dataKey}`);
+            console.log(`project.hasOwnProperty(dataKey): ${project.hasOwnProperty(dataKey)}`);
+            console.log(`Valor del campo: ${project[dataKey]}`);
+            console.log(`Condición especial: ${col === 'Base de Datos' || col === 'Balanceo'}`);
 
             if (col === 'CONTACTO') {
                 // Special handling for CONTACTO field - use direct contact info from project
@@ -410,15 +460,19 @@ function showProjectDetails(projectId) {
                 if (contactoId) {
                     loadContactButtons(project['Id Project'], contactoId);
                 }
-            } else if (project.hasOwnProperty(dataKey)) {
+            } else if (project.hasOwnProperty(dataKey) || col === 'Base de Datos' || col === 'Balanceo') {
+                console.log(`✅ Entrando a la condición para mostrar campo: ${col}`);
+
                 if (col === 'Computo') {
                     const computoValue = project[col] ?? '';
+                    console.log(`Generando HTML para Computo: ${computoValue}`);
                     detailsHtml += `
                         <div class="col-12 mt-2">
                             <label class="form-label detail-label">${col.toUpperCase()}:</label>
                             <textarea class="form-control" rows="4" readonly>${computoValue}</textarea>
                         </div>`;
                 } else if (col === 'OBSERVACIONES') {
+                    console.log('Generando HTML para OBSERVACIONES');
                     detailsHtml += `
                         <div class="col-md-6 mb-2">
                             <span class="detail-label">${col.toUpperCase()}:</span>
@@ -429,8 +483,11 @@ function showProjectDetails(projectId) {
                 } else {
                     const value = project[dataKey] ?? '';
                     let displayValue = getStyledContent(value);
+                    console.log(`Generando HTML para campo ${col}: valor=${value}, displayValue=${displayValue}`);
                     detailsHtml += `<div class="col-md-6 mb-2"><span class="detail-label">${col.replace(/_/g, ' ').toUpperCase()}:</span> ${displayValue}</div>`;
                 }
+            } else {
+                console.log(`❌ No se cumple condición para campo: ${col}`);
             }
         });
 
@@ -479,7 +536,7 @@ function updateNavButtons() {
     const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
     const prevBtn = document.getElementById('prevProjectBtn');
     const nextBtn = document.getElementById('nextProjectBtn');
-    
+
     if (prevBtn) prevBtn.disabled = currentIndex <= 0;
     if (nextBtn) nextBtn.disabled = currentIndex >= currentVisibleProjectIds.length - 1;
 }
@@ -493,7 +550,7 @@ function openDetailsModal(projectId) {
     if (detailsModalEl) {
         const detailsModal = new bootstrap.Modal(detailsModalEl);
         detailsModal.show();
-        
+
         // Auto-resize textareas cuando el modal sea visible
         detailsModalEl.addEventListener('shown.bs.modal', () => {
             detailsModalEl.querySelectorAll('textarea').forEach(autoResizeTextarea);
@@ -525,7 +582,7 @@ async function saveProject() {
 
     const formData = new FormData(form);
     const data = {};
-    
+
     // Convert FormData to object
     for (let [key, value] of formData.entries()) {
         data[key] = value;
