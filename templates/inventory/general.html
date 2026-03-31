@@ -219,6 +219,61 @@
         font-weight: 600;
     }
 
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: var(--card-bg);
+        border-top: 1px solid var(--card-border);
+        border-radius: 0 0 12px 12px;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .pagination-info {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .btn-page {
+        background: var(--bg-page);
+        border: 1px solid var(--card-border);
+        color: var(--text-secondary);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        min-width: 36px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-page:hover:not(.active):not(.disabled) {
+        background: var(--card-border);
+        border-color: #8b5cf6;
+        color: var(--text-primary);
+    }
+
+    .btn-page.active {
+        background: #8b5cf6;
+        border-color: #8b5cf6;
+        color: white;
+    }
+
+    .btn-page.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .page-dots {
+        color: var(--text-muted);
+        padding: 0 0.5rem;
+    }
+
     .loading-spinner {
         display: flex;
         justify-content: center;
@@ -371,6 +426,8 @@ class InventoryGeneral {
         this.inventory = [];
         this.projects = [];
         this.filteredInventory = [];
+        this.currentPage = 1;
+        this.itemsPerPage = 20;
         this.init();
     }
 
@@ -468,6 +525,11 @@ class InventoryGeneral {
             return;
         }
 
+        const totalPages = Math.ceil(this.filteredInventory.length / this.itemsPerPage);
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+        const endIndex = startIndex + this.itemsPerPage;
+        const paginatedItems = this.filteredInventory.slice(startIndex, endIndex);
+
         const tableHTML = `
             <div class="table-responsive">
                 <table class="table inventory-table">
@@ -494,13 +556,81 @@ class InventoryGeneral {
                         </tr>
                     </thead>
                     <tbody>
-                        ${this.filteredInventory.map(item => this.renderRow(item)).join('')}
+                        ${paginatedItems.map(item => this.renderRow(item)).join('')}
                     </tbody>
                 </table>
             </div>
+            ${this.renderPagination(totalPages, this.filteredInventory.length)}
         `;
 
         container.innerHTML = tableHTML;
+        this.attachPaginationListeners();
+    }
+
+    renderPagination(totalPages, totalItems) {
+        if (totalPages <= 1) return '';
+
+        const startItem = (this.currentPage - 1) * this.itemsPerPage + 1;
+        const endItem = Math.min(this.currentPage * this.itemsPerPage, totalItems);
+
+        let pages = [];
+        const maxVisible = 5;
+        let startPage = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+        if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return `
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Mostrando ${startItem} - ${endItem} de ${totalItems} equipos
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn btn-sm btn-page ${this.currentPage === 1 ? 'disabled' : ''}" data-page="prev">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    ${startPage > 1 ? '<button class="btn btn-sm btn-page" data-page="1">1</button>' : ''}
+                    ${startPage > 2 ? '<span class="page-dots">...</span>' : ''}
+                    ${pages.map(page => `
+                        <button class="btn btn-sm btn-page ${page === this.currentPage ? 'active' : ''}" data-page="${page}">${page}</button>
+                    `).join('')}
+                    ${endPage < totalPages - 1 ? '<span class="page-dots">...</span>' : ''}
+                    ${endPage < totalPages ? `<button class="btn btn-sm btn-page" data-page="${totalPages}">${totalPages}</button>` : ''}
+                    <button class="btn btn-sm btn-page ${this.currentPage === totalPages ? 'disabled' : ''}" data-page="next">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    attachPaginationListeners() {
+        const paginationContainer = document.querySelector('.pagination-container');
+        if (!paginationContainer) return;
+
+        paginationContainer.querySelectorAll('.btn-page').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const page = e.currentTarget.dataset.page;
+                const totalPages = Math.ceil(this.filteredInventory.length / this.itemsPerPage);
+
+                if (page === 'prev' && this.currentPage > 1) {
+                    this.currentPage--;
+                } else if (page === 'next' && this.currentPage < totalPages) {
+                    this.currentPage++;
+                } else if (page !== 'prev' && page !== 'next') {
+                    this.currentPage = parseInt(page);
+                }
+
+                this.renderTable();
+                document.getElementById('inventoryContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
     }
 
     renderRow(item) {
@@ -577,6 +707,7 @@ class InventoryGeneral {
             return true;
         });
 
+        this.currentPage = 1;
         this.renderTable();
     }
 
