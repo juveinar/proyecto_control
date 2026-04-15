@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# manage.py Es un archivo estático, es el punto de entrada para todos
+# los comandos administrativos: python manage.py runserver de Django que debe permanecer en la raiz
 """Django's command-line utility for administrative tasks."""
 import os
 import sys

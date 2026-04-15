@@ -7,10 +7,10 @@ Esta es una aplicación web para la gestión y visualización de proyectos, migr
 ```
 proyecto_control/
 ├── control_proyectos/          # App Django principal
-│   ├── models.py              # Modelos de datos
-│   ├── views.py               # Vistas y lógica de negocio
+│   ├── models.py              # Modelos: Proyecto, Evento, ProyectoFase, Contacto, ControlProyectosInventario
+│   ├── views.py               # Vistas y lógica de negocio (~1,250 líneas)
 │   ├── admin.py               # Configuración de admin
-│   └── urls.py                # URLs de la app
+│   └── urls.py                # URLs de la app (18 endpoints)
 ├── proyecto_control/          # Configuración del proyecto Django
 │   ├── settings.py            # Configuración de Django
 │   ├── urls.py                # URLs principales
@@ -26,7 +26,9 @@ proyecto_control/
 ├── templates/                 # Plantillas HTML
 ├── manage.py                  # Script de gestión de Django
 ├── requirements.txt           # Dependencias Python
-└── README.md                  # Este archivo
+├── README.md                  # Informacion de la app
+└── docs/                      # Documentación adicional
+    └── FLUJO_LOGICO.md      # Documentación de arquitectura y flujos
 ```
 
 ## 1. Descripción General
@@ -151,7 +153,40 @@ class Contacto(models.Model):
 
 ## 3. Modelos de Datos
 
-La aplicación utiliza cuatro modelos principales para gestionar la información de manera estructurada y relacional.
+La aplicación utiliza cinco modelos principales para gestionar la información de manera estructurada y relacional.
+
+### 📊 **Modelo ControlProyectosInventario**
+
+Almacena el inventario de equipos asociados a cada proyecto.
+
+```python
+class ControlProyectosInventario(models.Model):
+    TIPO_EQUIPO_CHOICES = [
+        ('Maquina Virtual', 'Maquina Virtual'),
+        ('Maquina Fisica', 'Maquina Fisica'),
+        ('Storage', 'Storage'),
+        ('Switch', 'Switch'),
+        # ... más tipos
+    ]
+    
+    ubicacion = models.CharField(max_length=255)
+    codigo = models.CharField(max_length=100)
+    hostname = models.CharField(max_length=255)
+    cpu = models.CharField(max_length=100)
+    ram = models.CharField(max_length=100)
+    ip_gestion = models.CharField(max_length=45)
+    ip_servicios = models.CharField(max_length=45)
+    tipo_equipo = models.CharField(choices=TIPO_EQUIPO_CHOICES)
+    proyecto = models.ForeignKey(Proyecto, on_delete=models.CASCADE)
+```
+
+**Características:**
+- ✅ **Múltiples tipos de equipo**: VMs, físicas, storage, network, etc.
+- ✅ **IPs múltiples**: Gestión, servicios, producción, adicionales
+- ✅ **Relación fuerte**: ForeignKey con CASCADE a Proyecto
+- ✅ **Vistas dedicadas**: Páginas de inventario general y por estado de proyecto
+
+---
 
 ### 📊 **Modelo Proyecto**
 
@@ -335,6 +370,16 @@ erDiagram
         date fecha
         datetime created_at
     }
+    ControlProyectosInventario {
+        int id PK
+        string hostname
+        string codigo
+        string tipo_equipo
+        string cpu
+        string ram
+        string ip_gestion
+        int proyecto_id FK
+    }
     Evento {
         int id PK
         string titulo
@@ -500,6 +545,23 @@ Actualiza un contacto.
 
 #### **DELETE /api/contacts/{id}/**
 Elimina un contacto.
+
+### 📦 **Endpoints de Inventario**
+
+#### **GET /api/inventario/**
+Lista el inventario con filtros opcionales por proyecto.
+
+#### **GET /api/inventario/all**
+Obtiene todo el inventario sin paginación.
+
+#### **POST /api/inventario/**
+Crea un nuevo equipo en el inventario.
+
+#### **PUT /api/inventario/{id}/**
+Actualiza un equipo existente.
+
+#### **DELETE /api/inventario/{id}/**
+Elimina un equipo del inventario.
 
 ### 🔄 **Endpoints de Fases de Proyecto**
 
@@ -1254,7 +1316,7 @@ proyecto_control/
 │   ├── __init__.py
 │   ├── admin.py                # Configuración del panel de admin para ver tus modelos de datos
 │   ├── apps.py                 
-│   ├── models.py               # Modelos de la base de datos (Proyecto, Evento, ProyectoFase, Contacto)
+│   ├── models.py               # Modelos: Proyecto, Evento, ProyectoFase, Contacto, ControlProyectosInventario
 │   ├── tests.py
 │   ├── urls.py                 # URLs de la app
 │   └── views.py                # Lógica de las vistas y APIs, procesa las solicitudes del usuario
@@ -1281,16 +1343,24 @@ proyecto_control/
 │   ├── img/
 │   │   └── axionhub.ico        # Icono de la aplicación
 │   └── js/
-│       └── main.js             # Lógica JavaScript principal (widgets, API, etc.)
+│       └── main.js             # Lógica JavaScript principal monolítica (~3,600 líneas)
 ├── templates/                  # Plantillas HTML
 │   ├── index.html              # Página principal con dashboard y widgets
-│   └── login.html              # Página de autenticación
+│   ├── login.html              # Página de autenticación
+│   ├── informe.html            # Visualización de informes IA
+│   └── inventory/              # Templates de inventario
+│       ├── general.html
+│       ├── projects_in_progress.html
+│       └── projects_finished.html
 ├── venv_proyecto/              # Entorno virtual de Python
 ├── .env                        # Variables de entorno (BD, API Keys, etc.)
 ├── .gitignore                  # Archivos ignorados por Git
 ├── manage.py                   # Utilidad de línea de comandos de Django
 ├── requirements.txt            # Dependencias del proyecto
-└── README.md                   # Este archivo
+├── README.md                   # Este archivo
+├── FLUJO_LOGICO.md             # Documentación de arquitectura y flujos
+└── docs/                       # Documentación adicional
+    └── FLUJO_LOGICO.md         # (alternativa) Documentación técnica
 ```
 
 ### 📁 Carpetas Destacadas
