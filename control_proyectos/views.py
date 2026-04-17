@@ -1153,9 +1153,31 @@ def generar_informe_ia(request):
 
     # Procesar cada proyecto con IA
     informe_parts = []
-    for proyecto in proyectos_en_curso:
-        # Preparar datos para el prompt
-        computo_list = [line.strip() for line in (proyecto.computo or '').split('\n') if line.strip()]
+    proyecto_count = len(proyectos_en_curso)
+    for idx, proyecto in enumerate(proyectos_en_curso):
+        # Delay entre proyectos para evitar rate limit (excepto el primero)
+        if idx > 0:
+            time.sleep(5)
+        # Obtener inventario del proyecto
+        inventario_items = proyecto.inventario_equipos.all()
+
+        # Construir tabla de inventario
+        if inventario_items:
+            tabla_inventario = []
+            tabla_inventario.append("| Hostname | Tipo | CPU | RAM | IP Gestión | IP Servicios | Sistema Operativo |")
+            tabla_inventario.append("|----------|------|-----|-----|------------|--------------|-------------------|")
+            for item in inventario_items:
+                hostname = item.hostname or 'N/A'
+                tipo = item.tipo_equipo or 'N/A'
+                cpu = item.cpu or 'N/A'
+                ram = item.ram or 'N/A'
+                ip_gestion = item.ip_gestion or 'N/A'
+                ip_servicios = item.ip_servicios or 'N/A'
+                so = item.sistema_operativo or 'N/A'
+                tabla_inventario.append(f"| {hostname} | {tipo} | {cpu} | {ram} | {ip_gestion} | {ip_servicios} | {so} |")
+            inventario_texto = "\n".join(tabla_inventario)
+        else:
+            inventario_texto = "No hay equipos registrados en el inventario."
 
         prompt_data = {
             "ID": proyecto.id_project or 'N/A',
@@ -1165,13 +1187,13 @@ def generar_informe_ia(request):
             "Líder de Proyecto": proyecto.project_leader or 'N/A',
             "Inicio Real": proyecto.start.strftime('%Y-%m-%d') if proyecto.start else 'N/A',
             "Fin Real": proyecto.finish.strftime('%Y-%m-%d') if proyecto.finish else 'N/A',
-            "Cómputo": "; ".join(computo_list),
+            "Progreso": "N/A",
         }
 
         prompt = (
             "Eres un asistente experto en gestión de proyectos. "
-            "Basado en los siguientes datos de un proyecto, genera un 'Análisis de Estado' breve, profesional y accionable (2-3 frases). "
-            "El análisis debe interpretar los datos clave (progreso, fechas) y describir la situación actual del proyecto, sugiriendo un siguiente paso o punto de atención. "
+            "Basado en los siguientes datos de un proyecto y su inventario de equipos, genera un 'Análisis de Estado' breve, profesional y accionable (2-3 frases). "
+            "El análisis debe interpretar los datos clave (progreso, fechas, infraestructura) y describir la situación actual del proyecto, sugiriendo un siguiente paso o punto de atención. "
             "No incluyas un título, solo el párrafo del análisis.\n\n"
             "Datos del Proyecto:\n"
             f"- ID del Proyecto: {prompt_data['ID']}\n"
@@ -1179,8 +1201,10 @@ def generar_informe_ia(request):
             f"- Nombre: {prompt_data['Nombre del Proyecto']}\n"
             f"- Progreso: {prompt_data['Progreso']}\n"
             f"- Estado: {prompt_data['Estado']}\n"
-            f"- Fechas Reales (Inicio/Fin): {prompt_data['Inicio Real']} / {prompt_data['Fin Real']}\n"
-            f"- Detalles de Cómputo: {prompt_data['Cómputo']}\n\n"
+            f"- Líder: {prompt_data['Líder de Proyecto']}\n"
+            f"- Fechas Reales (Inicio/Fin): {prompt_data['Inicio Real']} / {prompt_data['Fin Real']}\n\n"
+            f"Inventario de Equipos ({len(inventario_items)} equipos):\n"
+            f"{inventario_texto}\n\n"
             "Análisis de Estado:"
         )
 
@@ -1189,6 +1213,7 @@ def generar_informe_ia(request):
         base_backoff = 1.0
         attempt = 0
         success = False
+        last_error = None
         analisis = "No se pudo generar el análisis debido a un error."
 
         while attempt < max_attempts and not success:
@@ -1198,6 +1223,7 @@ def generar_informe_ia(request):
                 analisis = response.text.strip().replace('*', '')
                 success = True
             except Exception as e:
+                last_error = e
                 msg = str(e)
                 if 'Resource exhausted' in msg or '429' in msg or 'rate limit' in msg.lower() or 'quota' in msg.lower():
                     attempt += 1
@@ -1207,8 +1233,9 @@ def generar_informe_ia(request):
                 else:
                     break
 
-        if not success:
-            if 'Resource exhausted' in str(e) or '429' in str(e):
+        if not success and last_error:
+            msg = str(last_error)
+            if 'Resource exhausted' in msg or '429' in msg or 'rate limit' in msg.lower() or 'quota' in msg.lower():
                 analisis = "No se pudo generar el análisis: límite de recursos alcanzado. Intenta más tarde."
 
         title = proyecto.project or f"Proyecto {proyecto.id_project}"

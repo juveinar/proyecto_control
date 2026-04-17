@@ -2216,7 +2216,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
 
                 // AbortController para cancelar la petición si tarda demasiado
                 const controller = new AbortController();
-                const fetchTimeoutMs = 60 * 1000; // 60s
+                const fetchTimeoutMs = 5 * 60 * 1000; // 5 minutos
                 const fetchTimeout = setTimeout(() => {
                     try { controller.abort(); } catch (e) {}
                 }, fetchTimeoutMs);
