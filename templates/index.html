@@ -292,6 +292,8 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="informesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-bar-chart-line-fill"></i> Informes</a>
                         <ul class="dropdown-menu" aria-labelledby="informesDropdown">
+                            <li><a class="dropdown-item" href="{% url 'generar_informe_tradicional' %}" target="_blank"><i class="bi bi-file-text me-2"></i>Generar Informe Tradicional</a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'generar_informe_ia' %}" id="generarInformeIaLink"><i class="bi bi-robot me-2"></i>Generar Informe con IA</a></li>
                         </ul>
                     </li>

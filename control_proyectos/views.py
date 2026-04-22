@@ -11,7 +11,11 @@ from datetime import datetime, date
 import json
 import time
 import os
+import io
 from django.conf import settings
+from docx import Document
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from .models import Proyecto, Evento, ProyectoFase, Contacto, ControlProyectosInventario
 
 @require_http_methods(["GET", "POST"])
@@ -60,7 +64,7 @@ def index(request):
 def api_projects(request):
     """Obtener todos los proyectos o crear uno nuevo"""
     if request.method == 'GET':
-        proyectos = Proyecto.objects.all().order_by('-start', 'project')
+        proyectos = Proyecto.objects.select_related('contacto').all().order_by('-start', 'project')
 
         # Convertir a lista de diccionarios
         proyectos_list = []
@@ -261,10 +265,9 @@ def api_projects_add(request):
 
         proyecto.save()
 
-        # Si se creó un contacto y no tenía proyecto asociado, actualizarlo
-        if proyecto.contacto and not proyecto.contacto.proyecto:
-            proyecto.contacto.proyecto = proyecto
-            proyecto.contacto.save()
+        # Refrescar relación contacto para asegurar datos actualizados
+        if proyecto.contacto_id:
+            proyecto.refresh_from_db(fields=['contacto'])
 
         # 1. Requerimiento: Crear automáticamente fase Despliegue al crear proyecto
         try:
@@ -324,7 +327,7 @@ def api_projects_update(request, project_id):
         return JsonResponse({'error': 'Método no permitido'}, status=405)
 
     try:
-        proyecto = Proyecto.objects.get(id_project=project_id)
+        proyecto = Proyecto.objects.select_related('contacto').get(id_project=project_id)
         data = json.loads(request.body)
 
         # Actualizar campos principales
@@ -411,10 +414,9 @@ def api_projects_update(request, project_id):
 
         proyecto.save()
 
-        # Si se creó un contacto y no tenía proyecto asociado, actualizarlo
-        if proyecto.contacto and not proyecto.contacto.proyecto:
-            proyecto.contacto.proyecto = proyecto
-            proyecto.contacto.save()
+        # Refrescar relación contacto para asegurar datos actualizados
+        if proyecto.contacto_id:
+            proyecto.refresh_from_db(fields=['contacto'])
 
         # 2. Requerimiento: Actualizar Fase si se envía en el JSON
         nueva_fase = data.get('Nueva Fase')
@@ -1029,9 +1031,16 @@ def api_inventario_detail(request, pk):
 def api_contacts(request):
     """Obtener todos los contactos o crear uno nuevo."""
     if request.method == 'GET':
-        contactos = Contacto.objects.select_related('proyecto').all().order_by('nombre')
+        # Obtener contactos con los proyectos donde son contacto principal
+        contactos = Contacto.objects.prefetch_related('proyectos_principales').all().order_by('nombre')
         contactos_list = []
         for c in contactos:
+            # Obtener proyectos donde este contacto es el contacto principal
+            proyectos = c.proyectos_principales.all()
+            proyectos_data = [
+                {'id': p.id_project, 'nombre': p.project}
+                for p in proyectos
+            ]
             contactos_list.append({
                 'id': c.id,
                 'nombre': c.nombre,
@@ -1040,22 +1049,15 @@ def api_contacts(request):
                 'cargo': c.cargo,
                 'area': c.area,
                 'notas': c.notas,
-                'proyecto_id': c.proyecto.id_project if c.proyecto else None,
-                'proyecto_nombre': c.proyecto.project if c.proyecto else '',
+                'proyectos': proyectos_data,
+                'proyecto_id': proyectos[0].id_project if proyectos else None,
+                'proyecto_nombre': proyectos[0].project if proyectos else '',
             })
         return JsonResponse(contactos_list, safe=False)
 
     elif request.method == 'POST':
         try:
             data = json.loads(request.body)
-
-            proyecto_instance = None
-            proyecto_id = data.get('proyecto_id')
-            if proyecto_id:
-                try:
-                    proyecto_instance = Proyecto.objects.get(id_project=proyecto_id)
-                except Proyecto.DoesNotExist:
-                    pass  # No asignar proyecto si no se encuentra
 
             contacto = Contacto.objects.create(
                 nombre=data.get('nombre'),
@@ -1064,8 +1066,18 @@ def api_contacts(request):
                 cargo=data.get('cargo'),
                 area=data.get('area'),
                 notas=data.get('notas'),
-                proyecto=proyecto_instance,
             )
+
+            # Si se proporciona proyecto_id, asignar el contacto al proyecto
+            proyecto_id = data.get('proyecto_id')
+            if proyecto_id:
+                try:
+                    proyecto = Proyecto.objects.get(id_project=proyecto_id)
+                    proyecto.contacto = contacto
+                    proyecto.save()
+                except Proyecto.DoesNotExist:
+                    pass
+
             return JsonResponse({
                 'id': contacto.id,
                 'nombre': contacto.nombre,
@@ -1074,8 +1086,9 @@ def api_contacts(request):
                 'cargo': contacto.cargo,
                 'area': contacto.area,
                 'notas': contacto.notas,
-                'proyecto_id': contacto.proyecto.id_project if contacto.proyecto else None,
-                'proyecto_nombre': contacto.proyecto.project if contacto.proyecto else '',
+                'proyectos': [],
+                'proyecto_id': proyecto_id,
+                'proyecto_nombre': '',
             }, status=201)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
@@ -1085,7 +1098,7 @@ def api_contacts(request):
 def api_contact_detail(request, contact_id):
     """Actualizar o eliminar un contacto."""
     try:
-        contacto = Contacto.objects.get(pk=contact_id)
+        contacto = Contacto.objects.prefetch_related('proyectos_principales').get(pk=contact_id)
     except Contacto.DoesNotExist:
         return JsonResponse({'error': 'Contacto no encontrado'}, status=404)
 
@@ -1096,20 +1109,35 @@ def api_contact_detail(request, contact_id):
                 if field in data:
                     setattr(contacto, field, data[field])
 
+            # Si se proporciona proyecto_id, asignar este contacto al proyecto
             if 'proyecto_id' in data:
                 proyecto_id = data.get('proyecto_id')
-                proyecto_instance = None
                 if proyecto_id:
                     try:
-                        proyecto_instance = Proyecto.objects.get(id_project=proyecto_id)
+                        proyecto = Proyecto.objects.get(id_project=proyecto_id)
+                        proyecto.contacto = contacto
+                        proyecto.save()
                     except Proyecto.DoesNotExist:
-                        pass  # No cambiar si no se encuentra
-                contacto.proyecto = proyecto_instance
+                        pass
 
             contacto.save()
-            return JsonResponse({'id': contacto.id, 'nombre': contacto.nombre, 'telefono': contacto.telefono, 'correo': contacto.correo, 'cargo': contacto.cargo, 'area': contacto.area, 'notas': contacto.notas,
-                               'proyecto_id': contacto.proyecto.id_project if contacto.proyecto else None,
-                               'proyecto_nombre': contacto.proyecto.project if contacto.proyecto else ''})
+
+            # Obtener proyectos donde este contacto es el contacto principal
+            proyectos = contacto.proyectos_principales.all()
+            proyecto_id = proyectos[0].id_project if proyectos else None
+            proyecto_nombre = proyectos[0].project if proyectos else ''
+
+            return JsonResponse({
+                'id': contacto.id,
+                'nombre': contacto.nombre,
+                'telefono': contacto.telefono,
+                'correo': contacto.correo,
+                'cargo': contacto.cargo,
+                'area': contacto.area,
+                'notas': contacto.notas,
+                'proyecto_id': proyecto_id,
+                'proyecto_nombre': proyecto_nombre,
+            })
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 
@@ -1254,6 +1282,31 @@ def generar_informe_ia(request):
 
 
 @login_required
+def generar_informe_tradicional(request):
+    """Generar informe ejecutivo tradicional en HTML para impresión/PDF"""
+    # Obtener proyectos en curso con contacto e inventario relacionado
+    proyectos = Proyecto.objects.filter(estado='En Curso').select_related('contacto').prefetch_related('inventario_equipos').order_by('id_project')
+
+    # Calcular estadísticas
+    total_proyectos = proyectos.count()
+    total_equipos = sum(p.inventario_equipos.count() for p in proyectos)
+    proyectos_con_inventario = sum(1 for p in proyectos if p.inventario_equipos.exists())
+    proyectos_sin_inventario = total_proyectos - proyectos_con_inventario
+
+    context = {
+        'proyectos': proyectos,
+        'total_proyectos': total_proyectos,
+        'total_equipos': total_equipos,
+        'proyectos_con_inventario': proyectos_con_inventario,
+        'proyectos_sin_inventario': proyectos_sin_inventario,
+        'fecha_generacion': timezone.now().strftime('%d/%m/%Y %H:%M'),
+        'usuario': request.user.get_full_name() or request.user.username,
+    }
+
+    return render(request, 'informe_tradicional.html', context)
+
+
+@login_required
 def inventory_general(request):
     """Vista para mostrar el inventario general de todos los proyectos."""
     return render(request, 'inventory/general.html', {
@@ -1269,6 +1322,159 @@ def inventory_projects_in_progress(request):
         'title': 'Inventario de Proyectos en Curso',
         'description': 'Equipos de proyectos que están actualmente en desarrollo o ejecución'
     })
+
+
+@login_required
+def exportar_informe_word(request):
+    """Exportar informe ejecutivo a Word (DOCX)"""
+    # Obtener proyectos en curso con contacto e inventario relacionado
+    proyectos = Proyecto.objects.filter(estado='En Curso').select_related('contacto').prefetch_related('inventario_equipos').order_by('id_project')
+
+    # Crear documento Word
+    doc = Document()
+
+    # Configurar márgenes
+    sections = doc.sections
+    for section in sections:
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
+
+    # Título principal
+    titulo = doc.add_heading('Informe Ejecutivo - Proyectos en Curso', 0)
+    titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Fecha del informe
+    fecha = doc.add_paragraph()
+    fecha.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    fecha_run = fecha.add_run(f"Generado el: {timezone.now().strftime('%d/%m/%Y %H:%M')}")
+    fecha_run.font.size = Pt(10)
+    fecha_run.font.color.rgb = RGBColor(128, 128, 128)
+
+    # Espacio
+    doc.add_paragraph()
+
+    # Resumen ejecutivo
+    total_proyectos = proyectos.count()
+    if total_proyectos > 0:
+        resumen = doc.add_heading('Resumen Ejecutivo', level=1)
+
+        p = doc.add_paragraph()
+        p.add_run(f'Total de proyectos en curso: ').bold = True
+        p.add_run(str(total_proyectos))
+
+        # Contar proyectos con inventario
+        proyectos_con_inventario = sum(1 for p in proyectos if p.inventario_equipos.exists())
+        p = doc.add_paragraph()
+        p.add_run(f'Proyectos con inventario: ').bold = True
+        p.add_run(f'{proyectos_con_inventario} de {total_proyectos}')
+
+        # Contar proyectos con contacto
+        proyectos_con_contacto = sum(1 for p in proyectos if p.contacto)
+        p = doc.add_paragraph()
+        p.add_run(f'Proyectos con contacto asignado: ').bold = True
+        p.add_run(f'{proyectos_con_contacto} de {total_proyectos}')
+
+        doc.add_paragraph()
+
+    # Detalle de proyectos
+    doc.add_heading('Detalle de Proyectos', level=1)
+
+    for proyecto in proyectos:
+        # Título del proyecto
+        project_heading = doc.add_heading(
+            f"Proyecto: {proyecto.project} (ID: {proyecto.id_project})",
+            level=2
+        )
+
+        # Información básica
+        info_table = doc.add_table(rows=4, cols=2)
+        info_table.style = 'Light Grid Accent 1'
+
+        # Llenar tabla de información básica
+        info_data = [
+            ('Estado:', proyecto.estado or 'N/A'),
+            ('Líder de Proyecto:', proyecto.project_leader or 'N/A'),
+            ('RF:', proyecto.rf or 'N/A'),
+            ('Servicio:', proyecto.servicio or 'N/A'),
+        ]
+
+        for idx, (label, value) in enumerate(info_data):
+            row = info_table.rows[idx]
+            row.cells[0].text = label
+            row.cells[0].paragraphs[0].runs[0].font.bold = True
+            row.cells[1].text = str(value)
+
+        doc.add_paragraph()
+
+        # Contacto
+        if proyecto.contacto:
+            contacto_heading = doc.add_heading('Contacto', level=3)
+            contacto_para = doc.add_paragraph()
+            contacto_para.add_run(f"Nombre: ").bold = True
+            contacto_para.add_run(f"{proyecto.contacto.nombre}\n")
+            contacto_para.add_run(f"Correo: ").bold = True
+            contacto_para.add_run(f"{proyecto.contacto.correo or 'N/A'}\n")
+            contacto_para.add_run(f"Teléfono: ").bold = True
+            contacto_para.add_run(f"{proyecto.contacto.telefono or 'N/A'}\n")
+            if proyecto.contacto.cargo:
+                contacto_para.add_run(f"Cargo: ").bold = True
+                contacto_para.add_run(f"{proyecto.contacto.cargo}")
+        else:
+            doc.add_heading('Contacto', level=3)
+            p = doc.add_paragraph()
+            p.add_run('Sin contacto asignado').italic = True
+
+        doc.add_paragraph()
+
+        # Inventario
+        inventario = proyecto.inventario_equipos.all()
+        if inventario:
+            doc.add_heading('Inventario de Equipos', level=3)
+
+            # Tabla de inventario
+            inv_table = doc.add_table(rows=1, cols=5)
+            inv_table.style = 'Medium Grid 1 Accent 1'
+
+            # Encabezados
+            headers = ['Tipo de Equipo', 'Hostname', 'IP Gestión', 'Ubicación', 'Sistema Operativo']
+            header_cells = inv_table.rows[0].cells
+            for idx, header in enumerate(headers):
+                header_cells[idx].text = header
+                header_cells[idx].paragraphs[0].runs[0].font.bold = True
+
+            # Datos del inventario
+            for item in inventario:
+                row_cells = inv_table.add_row().cells
+                row_cells[0].text = item.tipo_equipo or 'N/A'
+                row_cells[1].text = item.hostname or 'N/A'
+                row_cells[2].text = item.ip_gestion or 'N/A'
+                row_cells[3].text = item.ubicacion or 'N/A'
+                row_cells[4].text = item.sistema_operativo or 'N/A'
+        else:
+            doc.add_heading('Inventario de Equipos', level=3)
+            p = doc.add_paragraph()
+            p.add_run('No hay equipos registrados').italic = True
+
+        # Separador entre proyectos
+        doc.add_paragraph()
+        doc.add_paragraph('_' * 50)
+        doc.add_paragraph()
+
+    # Guardar en buffer
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    # Preparar respuesta
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    response['Content-Disposition'] = f'attachment; filename="informe_ejecutivo_{timezone.now().strftime("%Y%m%d_%H%M")}.docx"'
+
+    return response
 
 
 @login_required

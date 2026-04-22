@@ -213,25 +213,21 @@ class ControlProyectosInventario(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.hostname or self.codigo} - {self.proyecto.project}"
+        return f"{self.hostname or self.codigo} - {self.proyecto.project if self.proyecto else 'Sin proyecto'}"
 
 
 class Contacto(models.Model):
-    """Modelo para almacenar contactos de la libreta."""
+    """Modelo para almacenar contactos de la libreta.
+
+    Nota: La relación con Proyecto se maneja a través de Proyecto.contacto (FK inversa).
+    Un contacto puede ser el contacto principal de múltiples proyectos.
+    """
     nombre = models.CharField(max_length=255, verbose_name="Nombre")
     telefono = models.CharField(max_length=50, verbose_name="Teléfono", blank=True, null=True)
     correo = models.EmailField(verbose_name="Correo Electrónico", blank=True, null=True, db_index=True)
     cargo = models.CharField(max_length=100, verbose_name="Cargo", blank=True, null=True)
     area = models.CharField(max_length=100, verbose_name="Área", blank=True, null=True)
     notas = models.TextField(verbose_name="Notas", blank=True, null=True)
-    proyecto = models.ForeignKey(
-        Proyecto,
-        on_delete=models.SET_NULL,
-        verbose_name="Proyecto Asociado",
-        related_name='contactos',
-        blank=True,
-        null=True
-    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

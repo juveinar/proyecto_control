@@ -1,16 +1,16 @@
 from django.contrib import admin
-from .models import Proyecto, Evento, ProyectoFase
+from .models import Proyecto, Evento, ProyectoFase, Contacto
 
 
 @admin.register(Proyecto)
 class ProyectoAdmin(admin.ModelAdmin):
-    list_display = ['id_project', 'project', 'estado', 'start', 'finish']
+    list_display = ['id_project', 'project', 'estado', 'contacto', 'start', 'finish']
     list_filter = ['estado', 'start']
     search_fields = ['id_project', 'rf', 'project']
     readonly_fields = ['created_at', 'updated_at']
     fieldsets = (
         ('Información Principal', {
-            'fields': ('id_project', 'rf', 'project', 'project_leader')
+            'fields': ('id_project', 'rf', 'project', 'project_leader', 'contacto')
         }),
         ('Estado y Progreso', {
             'fields': ('estado',)
@@ -52,6 +52,14 @@ class EventoAdmin(admin.ModelAdmin):
     search_fields = ['titulo', 'descripcion', 'responsable']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'fecha_inicio'
+
+
+@admin.register(Contacto)
+class ContactoAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'telefono', 'correo', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['nombre', 'telefono', 'correo']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(ProyectoFase)

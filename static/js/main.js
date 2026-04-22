@@ -899,7 +899,7 @@ const detailColumns = [
                     // CONTACTO field always renders regardless of project.hasOwnProperty
                     if (col === 'CONTACTO') {
                         // Special handling for CONTACTO field - fetch contact info
-                        console.log('Rendering CONTACTO field for project:', project['Id Project']);
+                        console.log('Rendering CONTACTO field for project:', project['Id Project'], 'CONTACTO_ID:', project['CONTACTO_ID']);
                         detailsHtml += `
                             <div class="col-md-6 mb-2">
                                 <span class="detail-label">CONTACTO:</span>
@@ -910,9 +910,9 @@ const detailColumns = [
                                     </div>
                                 </div>
                             </div>`;
-                        // Fetch contact info asynchronously
-                        console.log('Calling fetchContactInfo for project:', project['Id Project']);
-                        fetchContactInfo(project['Id Project']);
+                        // Fetch contact info asynchronously using CONTACTO_ID
+                        console.log('Calling fetchContactInfo for project:', project['Id Project'], 'with contact ID:', project['CONTACTO_ID']);
+                        fetchContactInfo(project['Id Project'], project['CONTACTO_ID']);
                     } else if (col === 'INVENTARIO') {
                         // Special handling for INVENTARIO field - always render
                         detailsHtml += `
@@ -960,10 +960,11 @@ const detailColumns = [
         /**
          * Fetch contact information for a specific project
          * @param {number} projectId - The ID of the project
+         * @param {number} contactoId - The ID of the contact (CONTACTO_ID from project)
          */
-        async function fetchContactInfo(projectId) {
+        async function fetchContactInfo(projectId, contactoId) {
             console.log('=== FETCH CONTACT INFO ===');
-            console.log('Project ID:', projectId);
+            console.log('Project ID:', projectId, 'Contacto ID:', contactoId);
             try {
                 // Get all contacts and find the one associated with this project
                 if (!window.allContactsForProjects) {
@@ -982,15 +983,23 @@ const detailColumns = [
                     console.log('Using cached contacts:', window.allContactsForProjects.length, 'items');
                 }
 
-                // Find all contacts associated with this project
-                console.log('Looking for contacts associated with project ID:', projectId);
-                const contacts = window.allContactsForProjects.filter(c => {
-                    console.log('Checking contact:', c.nombre, 'proyecto_id:', c.proyecto_id, 'proyecto:', c.proyecto);
-                    // Check if contact is associated with this project by project_id or project.id_project
-                    return c.proyecto_id === projectId ||
-                           (c.proyecto && c.proyecto.id_project === projectId) ||
-                           (c.proyecto && c.proyecto['Id Project'] === projectId);
-                });
+                // Find contact by ID (new relationship: Proyecto.contacto)
+                let contacts = [];
+                if (contactoId) {
+                    console.log('Looking for contact by ID:', contactoId);
+                    const contact = window.allContactsForProjects.find(c => c.id === contactoId);
+                    if (contact) {
+                        contacts = [contact];
+                    }
+                }
+                // Fallback: try old method for backward compatibility
+                if (contacts.length === 0) {
+                    console.log('Looking for contacts associated with project ID:', projectId);
+                    contacts = window.allContactsForProjects.filter(c => {
+                        return c.proyecto_id === projectId ||
+                               (c.proyectos && c.proyectos.some(p => p.id === projectId));
+                    });
+                }
 
                 console.log('Found contacts:', contacts);
 
@@ -1645,6 +1654,8 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
         // haya cerrado completamente antes de abrir el de detalles.
         if (isEdit && projectModalEl) {
             projectModalEl.addEventListener('hidden.bs.modal', async () => {
+                // Limpiar caché de contactos para forzar recarga con datos actualizados
+                window.allContactsForProjects = null;
                 await fetchProjects(); // Actualizar datos
                 displayAllPendientes(); // Actualizar pendientes
                 openDetailsModal(projectId); // Abrir detalles

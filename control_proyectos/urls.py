@@ -20,6 +20,8 @@ urlpatterns = [
 
     # Generación de informes
     path('generar_informe', views.generar_informe_ia, name='generar_informe_ia'),
+    path('informe_tradicional', views.generar_informe_tradicional, name='generar_informe_tradicional'),
+    path('exportar_informe_word', views.exportar_informe_word, name='exportar_informe_word'),
 
     # API de Contactos
     path('api/contacts', views.api_contacts, name='api_contacts'),
