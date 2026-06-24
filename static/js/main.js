@@ -759,7 +759,7 @@ const detailColumns = [
                             <select class="form-select" id="field-${col}" name="${dataKey}">
                                 <option value="">Seleccionar contacto...</option>
                             </select>
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="add-contact-btn" title="Agregar nuevo contacto">
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-add-project-contact" title="Agregar nuevo contacto">
                                 <i class="bi bi-plus-lg"></i>
                             </button>
                         </div>
@@ -2353,6 +2353,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
         const saveContactBtn = document.getElementById('saveContactBtn');
         let allContacts = [];
         let currentEditingContactId = null;
+        let contactModalProjectOriginId = null;
         let contactsCurrentPage = 1;
         const contactsPerPage = 10;
 
@@ -2622,6 +2623,18 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
             addContactBtn.addEventListener('click', () => openContactModal());
         }
 
+        const projectFormElement = document.getElementById('projectForm');
+        if (projectFormElement) {
+            projectFormElement.addEventListener('click', (e) => {
+                const addProjectContactBtn = e.target.closest('.btn-add-project-contact');
+                if (addProjectContactBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openContactModal();
+                }
+            });
+        }
+
         // Search functionality for contacts
         const contactsSearchInput = document.getElementById('contacts-search-input');
         if (contactsSearchInput) {
@@ -2764,7 +2777,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
         }
 
         // Load projects for dropdown
-        async function loadProjectsDropdown() {
+        async function loadProjectsDropdown(selectedProjectId = null) {
             console.log('=== LOADING PROJECTS DROPDOWN ===');
             try {
                 console.log('Fetching projects from /api/projects...');
@@ -2815,6 +2828,11 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                     select.appendChild(option);
                 });
 
+                if (selectedProjectId != null) {
+                    select.value = selectedProjectId;
+                    console.log('Selected project in dropdown:', select.value);
+                }
+
                 console.log(`Loaded ${projects.length} projects in dropdown`);
                 console.log('Final select options count:', select.children.length);
                 console.log('Final select HTML:', select.innerHTML);
@@ -2825,7 +2843,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
         }
 
         // Contact modal functions
-        function openContactModal(contact = null) {
+        async function openContactModal(contact = null) {
             console.log('Opening contact modal for:', contact);
 
             const form = document.getElementById('contactForm');
@@ -2834,10 +2852,17 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                 return;
             }
 
+            const originProjectField = document.getElementById('field-Id Project');
+            const originProjectId = originProjectField ? parseInt(originProjectField.value, 10) : null;
+            contactModalProjectOriginId = originProjectId && !isNaN(originProjectId) ? originProjectId : null;
+            console.log('Contact modal opened from project ID:', contactModalProjectOriginId);
+
             // Load projects dropdown if not already loaded
             const select = document.getElementById('contact-proyecto');
             if (select && select.children.length <= 1) {
-                loadProjectsDropdown();
+                await loadProjectsDropdown(contactModalProjectOriginId);
+            } else if (contactModalProjectOriginId) {
+                select.value = contactModalProjectOriginId;
             }
 
             // Show modal first
@@ -2855,6 +2880,10 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                         modalTitle.textContent = 'Editar Contacto';
                     }
 
+                    if (contactModalProjectOriginId && !contact.proyecto_id) {
+                        contact.proyecto_id = contactModalProjectOriginId;
+                    }
+
                     // Set all field values
                     const fields = [
                         { id: 'contact-id', value: contact.id },
@@ -2864,7 +2893,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                         { id: 'contact-cargo', value: contact.cargo || '' },
                         { id: 'contact-area', value: contact.area || '' },
                         { id: 'contact-notas', value: contact.notas || '' },
-                        { id: 'contact-proyecto', value: contact.proyecto_id || '' }
+                        { id: 'contact-proyecto', value: contact.proyecto_id || contactModalProjectOriginId || '' }
                     ];
 
                     fields.forEach(field => {
@@ -2917,6 +2946,13 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                             console.log(`Field not found for clearing: ${fieldId}`);
                         }
                     });
+
+                    if (contactModalProjectOriginId) {
+                        const projectSelect = document.getElementById('contact-proyecto');
+                        if (projectSelect) {
+                            projectSelect.value = contactModalProjectOriginId;
+                        }
+                    }
 
                     // Update modal title
                     const modalTitle = document.getElementById('contactModalLabel');
@@ -3022,6 +3058,30 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                     page: currentPageBeforeSave
                 });
 
+                if (contactModalProjectOriginId && responseData && responseData.id) {
+                    const newContactId = responseData.id;
+                    const contactField = document.getElementById('field-CONTACTO');
+                    if (contactField) {
+                        await loadContactsForDropdown(newContactId);
+                        contactField.value = newContactId;
+                        contactField.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    if (window.allProjects) {
+                        const project = allProjects.find(p => String(p['Id Project']) === String(contactModalProjectOriginId));
+                        if (project) {
+                            project['CONTACTO_ID'] = newContactId;
+                            project['CONTACTO'] = `${responseData.nombre || ''}${responseData.correo ? ` (${responseData.correo})` : ''}`;
+                        }
+                    }
+
+                    window.allContactsForProjects = null;
+
+                    if (currentDetailProjectId === contactModalProjectOriginId) {
+                        showProjectDetails(currentDetailProjectId);
+                    }
+                }
+
                 await fetchAllContacts();
                 contactModal.hide();
 
@@ -3043,6 +3103,9 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                 // Show success message
                 const successMsg = isEdit ? 'Contacto actualizado exitosamente' : 'Contacto agregado exitosamente';
                 showToast(successMsg, 'success');
+
+                // Reset origin project context after save
+                contactModalProjectOriginId = null;
 
             } catch (error) {
                 console.error("Error saving contact:", error);

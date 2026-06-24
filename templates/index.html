@@ -708,67 +708,6 @@
         </svg>
     </button>
 
-    <!-- Modal de Contacto -->
-    <div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="contactModalLabel">Agregar Nuevo Contacto</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="contactForm">
-                        <input type="hidden" id="contactId" name="contactId">
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="contactNombre" class="form-label">Nombre *</label>
-                                <input type="text" class="form-control" id="contactNombre" name="nombre" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="contactTelefono" class="form-label">Teléfono</label>
-                                <input type="tel" class="form-control" id="contactTelefono" name="telefono">
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="contactCorreo" class="form-label">Correo Electrónico</label>
-                                <input type="email" class="form-control" id="contactCorreo" name="correo">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="contactCargo" class="form-label">Cargo</label>
-                                <input type="text" class="form-control" id="contactCargo" name="cargo">
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="contactArea" class="form-label">Área</label>
-                                <input type="text" class="form-control" id="contactArea" name="area">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="contactProyecto" class="form-label">Proyecto Asociado</label>
-                                <select class="form-select" id="contactProyecto" name="proyecto_id">
-                                    <option value="">Seleccionar proyecto</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="contactNotas" class="form-label">Notas</label>
-                            <textarea class="form-control" id="contactNotas" name="notas" rows="3"></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="saveContactBtn">Guardar Contacto</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal de Inventario de Equipos -->
     <div class="modal fade" id="inventoryModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="false">
         <div class="modal-dialog modal-xl" id="inventoryModalDialog">
