@@ -771,8 +771,8 @@ const detailColumns = [
                 } else {
                     const isDate = dateColumns.includes(col);
                     const isReadOnly = (isEdit && col === 'Id Project') || (!isEdit && col === 'Estado');
-                    const inputType = isDate ? 'date' : 'text';
-                    const formValue = inputType === 'date' && value ? value.split('T')[0] : value;
+                        const inputType = isDate ? 'date' : 'text';
+                        const formValue = inputType === 'date' && value ? value.split('T')[0] : value;
 
                 // Para el modo de agregar, establecer el valor por defecto de 'Estado'
                 let finalValue = formValue;
@@ -780,7 +780,9 @@ const detailColumns = [
                     finalValue = 'En Curso';
                 }
 
-                fieldHtml = `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><input type="${inputType}" class="form-control" id="field-${col}" name="${dataKey}" value="${finalValue}" ${isReadOnly ? 'readonly' : ''}></div>`;
+                // Añadir maxlength para campos que lo requieren (evitar errores de DB por longitud)
+                const maxlengthAttr = col === 'Base de Datos' ? 'maxlength="100"' : '';
+                fieldHtml = `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><input type="${inputType}" class="form-control" id="field-${col}" name="${dataKey}" value="${finalValue}" ${maxlengthAttr} ${isReadOnly ? 'readonly' : ''}></div>`;
                 }
                 return fieldHtml;
             };
@@ -1628,6 +1630,12 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
         data['Id Project'] = parseFloat(data['Id Project']);
     }
 
+    // Validaciones específicas de longitud para evitar error 1406 en la base de datos
+    if (data['Base de Datos'] && String(data['Base de Datos']).length > 100) {
+        showNotification('El campo "Base de Datos" no puede superar 100 caracteres. Acorte el valor.', 'error');
+        return;
+    }
+
     // Si es un nuevo proyecto, agregar la fase de Despliegue automáticamente
     if (!isEdit) {
         data.fase = 'Despliegue';
@@ -1717,7 +1725,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                 const excludedKeysForPendientesCheck = new Set([
                     'Id Project', 'Project', 'Estado', 'Start', 'Finish', 'RF', 'Computo',
                     '% Complete', 'Unnamed: 22', 'Budget', 'Baseline Start', 'Baseline Finish', 'External Costs',
-                    'RESUELVE POR NOMBRE', 'FGN 172.22.16.93'
+                    'RESUELVE POR NOMBRE', 'FGN 172.22.16.93', 'Base de Datos'
                 ]);
 
                 // 1. Detectar dinámicamente todas las columnas que tienen al menos un "Pendiente" o "En curso"
