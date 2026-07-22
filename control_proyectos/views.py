@@ -6,6 +6,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.db.models import Q, Count
+from django.db import IntegrityError
 from django.utils import timezone
 from datetime import datetime, date
 import json
@@ -179,6 +180,18 @@ def api_projects_add(request):
     try:
         data = json.loads(request.body)
 
+        project_id_value = data.get('Id Project')
+        if project_id_value is None or project_id_value == '':
+            return JsonResponse({'error': 'El campo "Id Project" es obligatorio y debe ser un número.'}, status=400)
+
+        try:
+            project_id_int = int(project_id_value)
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'El campo "Id Project" debe ser un número válido.'}, status=400)
+
+        if Proyecto.objects.filter(id_project=project_id_int).exists():
+            return JsonResponse({'error': f'El ID de proyecto {project_id_int} ya existe. Use otro número o edite el proyecto existente.'}, status=409)
+
         # Campos que deben inicializarse con 'Pendiente'
         pendiente_fields = {
             'NTP': 'ntp',
@@ -198,7 +211,7 @@ def api_projects_add(request):
 
         # Mapear campos principales
         if 'Id Project' in data:
-            proyecto.id_project = data['Id Project']
+            proyecto.id_project = project_id_int
         if 'RF' in data:
             proyecto.rf = data['RF']
         if 'Project' in data:
@@ -263,7 +276,10 @@ def api_projects_add(request):
             if excel_field in data:
                 setattr(proyecto, model_field, data[excel_field] or None)
 
-        proyecto.save()
+        try:
+            proyecto.save()
+        except IntegrityError:
+            return JsonResponse({'error': f'El ID de proyecto {project_id_int} ya existe. Use otro número o edite el proyecto existente.'}, status=409)
 
         # Refrescar relación contacto para asegurar datos actualizados
         if proyecto.contacto_id:

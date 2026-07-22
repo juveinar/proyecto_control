@@ -711,7 +711,7 @@ const detailColumns = [
 
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
-                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Base de Datos', 'Balanceo', 'Computo'],
+                'Detalles de Cómputo': ['DOMINIO', 'SERVICIO', 'Base de Datos', 'Balanceo', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
 
@@ -873,7 +873,7 @@ const detailColumns = [
 
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
-                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'PLATAFORMA', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Base de Datos', 'Balanceo', 'Computo'],
+                'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'UBICACION', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Base de Datos', 'Balanceo', 'Computo'],
                 'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
             };
 
@@ -924,6 +924,13 @@ const detailColumns = [
                                     <i class="bi bi-server"></i>
                                 </button>
                             </div>`;
+                    } else if (['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'UBICACION', 'SO'].includes(col)) {
+                        const detailId = `detail-${col.toLowerCase().replace(/[_ ]+/g, '-')}`;
+                        detailsHtml += `
+                            <div class="col-md-6 mb-2">
+                                <span class="detail-label">${col.replace(/_/g, ' ').toUpperCase()}:</span>
+                                <span id="${detailId}" class="detail-value">Cargando inventario...</span>
+                            </div>`;
                     } else if (project.hasOwnProperty(dataKey)) {
                         if (col === 'Computo') {
                             const computoValue = project[col] ?? '';
@@ -957,6 +964,7 @@ const detailColumns = [
             }
 
             updateNavButtons();
+            loadInventoryDetails(projectId);
         }
 
         /**
@@ -1173,6 +1181,80 @@ const detailColumns = [
                 }, { once: true });
             }
         };
+
+        async function loadInventoryDetails(projectId) {
+            try {
+                const response = await fetch(`/api/inventario?proyecto_id=${projectId}`);
+                if (!response.ok) {
+                    console.error('Error fetching inventory details:', response.status);
+                    updateInventoryDetailsUI({
+                        cantidad_maquinas: 'No disponible',
+                        cod_serv_hostname: 'No disponible',
+                        ubicacion: 'No disponible',
+                        so: 'No disponible'
+                    });
+                    return;
+                }
+
+                const inventario = await response.json();
+                const items = Array.isArray(inventario) ? inventario : [];
+
+                const maquinasCount = items.length;
+                const cantidadMaquinas = String(maquinasCount);
+
+                const codHostnameList = items
+                    .map(item => {
+                        const codigo = item.codigo ? String(item.codigo).trim() : '';
+                        const hostname = item.hostname ? String(item.hostname).trim() : '';
+                        if (codigo && hostname) {
+                            return `${codigo}-${hostname}`;
+                        }
+                        return codigo || hostname;
+                    })
+                    .filter(Boolean);
+
+                const ubicacionSet = new Set();
+                const soSet = new Set();
+
+                items.forEach(item => {
+                    const os = item.sistema_operativo ? String(item.sistema_operativo).trim() : '';
+                    if (os) soSet.add(os);
+
+                    const ubicacion = item.ubicacion ? String(item.ubicacion).trim() : '';
+                    if (ubicacion) ubicacionSet.add(ubicacion);
+                });
+
+                const ubicacionValue = Array.from(ubicacionSet).join(', ') || 'Sin datos';
+                const soValue = Array.from(soSet).join(', ') || 'Sin datos';
+
+                updateInventoryDetailsUI({
+                    cantidad_maquinas: cantidadMaquinas,
+                    cod_serv_hostname: codHostnameList.join(', ') || 'Sin datos',
+                    ubicacion: ubicacionValue,
+                    so: soValue
+                });
+            } catch (error) {
+                console.error('Error loading inventory details:', error);
+                updateInventoryDetailsUI({
+                    cantidad_maquinas: 'Error',
+                    cod_serv_hostname: 'Error',
+                    ubicacion: 'Error',
+                    so: 'Error'
+                });
+            }
+        }
+
+        function updateInventoryDetailsUI(values) {
+            const cantidadEl = document.getElementById('detail-cantidad-maquinas');
+            const codHostnameEl = document.getElementById('detail-cod-serv-hostname');
+            const ubicacionEl = document.getElementById('detail-ubicacion');
+            const soEl = document.getElementById('detail-so');
+
+            if (cantidadEl) cantidadEl.textContent = values.cantidad_maquinas;
+            if (codHostnameEl) codHostnameEl.textContent = values.cod_serv_hostname;
+            if (ubicacionEl) ubicacionEl.textContent = values.ubicacion;
+            if (soEl) soEl.textContent = values.so;
+        }
 
         // Abre el modal de inventario para un proyecto específico.
         window.openInventoryModal = async (projectId) => {
@@ -1590,14 +1672,14 @@ const detailColumns = [
         addEventListenerSafely('prevProjectBtn', 'click', () => {
             const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
             if (currentIndex > 0) {
-                showProjectDetails(currentVisibleProjectIds[currentIndex - 1]);
+                openDetailsModal(currentVisibleProjectIds[currentIndex - 1]);
             }
         });
 
         addEventListenerSafely('nextProjectBtn', 'click', () => {
             const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
             if (currentIndex < currentVisibleProjectIds.length - 1) {
-                showProjectDetails(currentVisibleProjectIds[currentIndex + 1]);
+                openDetailsModal(currentVisibleProjectIds[currentIndex + 1]);
             }
         });
 
@@ -1620,6 +1702,13 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
     }
 
     const isEdit = idField && idField.hasAttribute('readonly');
+    if (!isEdit) {
+        const projectAlreadyExists = allProjects.some(project => String(project['Id Project']) === String(projectId));
+        if (projectAlreadyExists) {
+            showNotification(`El ID de proyecto ${projectId} ya existe. Usa otro número o edita el proyecto existente.`, 'error');
+            return;
+        }
+    }
 
     // Usar FormData para serializar correctamente todo el formulario
     const formData = new FormData(form);
