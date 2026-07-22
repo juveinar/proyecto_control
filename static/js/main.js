@@ -3472,6 +3472,12 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
             const projectId = invProyectoIdEl ? invProyectoIdEl.value : null;
             if (projectId) {
                 loadInventoryData(projectId);
+
+                // Si el proyecto actualmente abierto en el modal de detalles coincide
+                // con el proyecto del inventario, refrescar también el resumen visible.
+                if (typeof currentDetailProjectId !== 'undefined' && currentDetailProjectId === Number(projectId)) {
+                    loadInventoryDetails(Number(projectId));
+                }
             }
         }
 
@@ -3602,10 +3608,13 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                     throw new Error(errorData.error || 'Error al eliminar el equipo');
                 }
 
-                // Recargar la tabla
+                // Recargar la tabla y sincronizar el resumen visible en detalles
                 const invProyectoIdEl = document.getElementById('invProyectoId');
                 const projectId = invProyectoIdEl ? invProyectoIdEl.value : null;
                 loadInventoryData(projectId);
+                if (typeof currentDetailProjectId !== 'undefined' && currentDetailProjectId === Number(projectId)) {
+                    loadInventoryDetails(Number(projectId));
+                }
                 showNotification('Equipo eliminado exitosamente', 'success');
 
             } catch (error) {
