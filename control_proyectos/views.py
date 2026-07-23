@@ -173,6 +173,27 @@ def api_projects_stats(request):
     })
 
 
+@require_http_methods(["GET"])
+@login_required
+def api_project_phases(request, project_id):
+    """Devuelve el historial de fases de un proyecto para la línea de tiempo visual."""
+    try:
+        proyecto = Proyecto.objects.get(id_project=project_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({'error': 'Proyecto no encontrado'}, status=404)
+
+    fases = ProyectoFase.objects.filter(proyecto=proyecto).order_by('fecha', 'created_at')
+    fases_list = []
+    for fase in fases:
+        fases_list.append({
+            'fase': fase.fase,
+            'label': fase.get_fase_display(),
+            'fecha': fase.fecha.isoformat() if fase.fecha else None,
+        })
+
+    return JsonResponse(fases_list, safe=False)
+
+
 @require_http_methods(["POST"])
 @login_required
 def api_projects_add(request):

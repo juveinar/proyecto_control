@@ -67,6 +67,179 @@
         .action-icons { cursor: pointer; margin-left: 8px; opacity: 0.8; transition: opacity 0.2s, transform 0.2s; }
         .action-icons:hover { opacity: 1; transform: scale(1.2); }
         .detail-label { font-weight: bold; color: var(--ai-primary); }
+
+        .project-phase-timeline-wrapper {
+            margin-bottom: 1.25rem;
+        }
+
+        .phase-timeline-shell {
+            background: linear-gradient(135deg, rgba(0, 170, 255, 0.12), rgba(0, 255, 196, 0.08));
+            border: 1px solid rgba(0, 170, 255, 0.35);
+            border-radius: 1rem;
+            padding: 1rem;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 12px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        .phase-timeline-header {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .phase-timeline-chip {
+            display: inline-block;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: transparent;
+            border: none;
+            color: #8fe7ff;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.35rem;
+        }
+
+        .btn-group .btn[data-view="timeline"],
+        .btn-group .btn[data-view="timeline"].active,
+        .btn-group .btn[data-view="timeline"]:hover,
+        .btn-group .btn[data-view="timeline"]:focus,
+        .btn-group .btn[data-view="timeline"]:active {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.01em;
+            border: 1px solid rgba(0, 170, 255, 0.65) !important;
+            box-shadow: 0 0 0 0.15rem rgba(0, 170, 255, 0.18) !important;
+            background: linear-gradient(135deg, rgba(0, 170, 255, 0.22), rgba(0, 255, 196, 0.12)) !important;
+            opacity: 1 !important;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .phase-timeline-title {
+            margin: 0;
+            color: #f3f6fb;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .phase-timeline-status {
+            color: #96f4d8;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .phase-timeline-track {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+
+        .phase-step {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            min-width: 0;
+        }
+
+        .phase-node {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-top: 0.38rem;
+            position: relative;
+            z-index: 2;
+            flex: 0 0 auto;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .phase-step::before {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 0.52rem;
+            bottom: -1.2rem;
+            width: 2px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02));
+            z-index: 1;
+        }
+
+        .phase-step:last-child::before {
+            display: block;
+        }
+
+        .phase-card {
+            background: rgba(17, 23, 35, 0.58);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 0.8rem;
+            padding: 0.6rem 0.7rem;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .phase-step:hover .phase-card {
+            transform: translateY(-2px);
+            border-color: rgba(0, 170, 255, 0.55);
+            box-shadow: 0 8px 18px rgba(0, 170, 255, 0.12);
+        }
+
+        .phase-label {
+            color: #f2f7ff;
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+
+        .phase-date {
+            color: #aab6cb;
+            font-size: 0.74rem;
+        }
+
+        .phase-completed .phase-node { background: #00ffc4; color: #00ffc4; }
+        .phase-completed .phase-card { border-color: rgba(0, 255, 196, 0.4); }
+
+        .phase-step.phase-cierre .phase-node {
+            background: #00ffc4;
+            color: #00ffc4;
+            box-shadow: 0 0 14px rgba(0, 255, 196, 0.45);
+        }
+
+        .phase-step.phase-cierre .phase-card {
+            border-color: rgba(0, 255, 196, 0.75);
+            box-shadow: 0 0 16px rgba(0, 255, 196, 0.18);
+        }
+
+        .phase-current .phase-node {
+            background: linear-gradient(135deg, #40E0D0, #FFD700);
+            color: #FFD700;
+            box-shadow: 0 0 14px rgba(255, 222, 0, 0.45);
+        }
+        .phase-current .phase-card { border-color: rgba(255, 222, 0, 0.7); box-shadow: 0 0 16px rgba(255, 222, 0, 0.2); }
+        .phase-current .phase-label { color: #ffe978; }
+
+        .phase-pending .phase-node { background: #5a6478; color: #5a6478; }
+        .phase-pending .phase-card { opacity: 0.85; }
+
+        @media (max-width: 992px) {
+            .phase-timeline-track {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .phase-timeline-track {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .stat-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.5rem; background-color: var(--ai-surface); border: 2px solid #30384a; cursor: pointer; transition: all 0.2s ease; }
         .stat-card:hover { border-color: var(--ai-primary); }
         .stat-card.active.finished { border-color: #00ffc4; box-shadow: 0 0 15px rgba(0, 255, 196, 0.3); }

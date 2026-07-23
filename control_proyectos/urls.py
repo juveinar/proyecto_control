@@ -10,6 +10,7 @@ urlpatterns = [
     # API de Proyectos
     path('api/projects', views.api_projects, name='api_projects'),  # GET y POST
     path('api/projects/stats', views.api_projects_stats, name='api_projects_stats'),
+    path('api/projects/<int:project_id>/phases', views.api_project_phases, name='api_project_phases'),
     path('api/projects/<int:project_id>', views.api_projects_update, name='api_projects_update'),  # PUT
     path('api/projects/<int:project_id>/status', views.api_projects_update_status, name='api_projects_update_status'),
 

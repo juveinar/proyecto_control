@@ -871,6 +871,12 @@ const detailColumns = [
             if (editFromDetailsBtn) editFromDetailsBtn.dataset.projectId = projectId;
             const detailsBody = document.getElementById('detailsModalBody');
 
+            let detailsHtml = `
+                <div class="project-phase-timeline-wrapper">
+                    <div id="project-phase-timeline" class="phase-timeline-loading">Cargando línea de tiempo de fases...</div>
+                </div>
+                <div class="accordion" id="detailsAccordion">`;
+
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
                 'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'UBICACION', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Base de Datos', 'Balanceo', 'Computo'],
@@ -878,8 +884,6 @@ const detailColumns = [
             };
 
             console.log('Field groups:', fieldGroups);
-
-            let detailsHtml = '<div class="accordion" id="detailsAccordion">';
 
             Object.entries(fieldGroups).forEach(([groupName, fields], index) => {
                 const accordionId = `details-collapse-${index}`;
@@ -965,6 +969,82 @@ const detailColumns = [
 
             updateNavButtons();
             loadInventoryDetails(projectId);
+            loadProjectPhaseTimeline(projectId);
+        }
+
+        async function loadProjectPhaseTimeline(projectId) {
+            const phaseTimelineEl = document.getElementById('project-phase-timeline');
+            if (!phaseTimelineEl) return;
+
+            try {
+                const response = await fetch(`/api/projects/${projectId}/phases`);
+                if (!response.ok) {
+                    throw new Error('No se pudo cargar la línea de tiempo');
+                }
+
+                const fases = await response.json();
+                phaseTimelineEl.innerHTML = renderProjectPhaseTimeline(fases);
+            } catch (error) {
+                console.error('Error loading project phases:', error);
+                phaseTimelineEl.innerHTML = `
+                    <div class="phase-timeline-shell">
+                        <div class="phase-timeline-header">
+                            <div>
+                                <span class="phase-timeline-chip">Línea de tiempo</span>
+                                <h6 class="phase-timeline-title">No disponible</h6>
+                            </div>
+                            <span class="phase-timeline-status">Sin historial de fases</span>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        function renderProjectPhaseTimeline(fases) {
+            const phaseOrder = ['DESPLIEGUE', 'ENTREGADO', 'OPERACION', 'CIERRE'];
+            const phaseLabels = {
+                DESPLIEGUE: 'Despliegue',
+                ENTREGADO: 'Entregado a Usuario',
+                OPERACION: 'Paso a Operación',
+                CIERRE: 'Cierre'
+            };
+
+            const fasesList = Array.isArray(fases) ? fases : [];
+            const fasesMap = new Map(fasesList.map(fase => [fase.fase, fase]));
+            const currentPhase = fasesList[fasesList.length - 1] || null;
+
+            const timelineItems = phaseOrder.map(phaseKey => {
+                const isCompleted = !!fasesMap.get(phaseKey);
+                const isCurrent = currentPhase && currentPhase.fase === phaseKey;
+                const phaseData = fasesMap.get(phaseKey);
+                const statusClass = isCurrent ? 'phase-current' : (isCompleted ? 'phase-completed' : 'phase-pending');
+                const extraClass = phaseKey === 'CIERRE' ? 'phase-cierre' : '';
+                const label = phaseLabels[phaseKey] || phaseKey;
+                const dateText = phaseData?.fecha
+                    ? new Date(`${phaseData.fecha}T00:00:00`).toLocaleDateString('es-CL', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    })
+                    : 'Pendiente';
+
+                return `
+                    <div class="phase-step ${statusClass} ${extraClass}" title="${label} · ${dateText}">
+                        <div class="phase-node"></div>
+                        <div class="phase-card">
+                            <span class="phase-label">${label}</span>
+                            <span class="phase-date">${isCompleted ? dateText : 'Pendiente'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="phase-timeline-shell">
+                    <div class="phase-timeline-track">
+                        ${timelineItems}
+                    </div>
+                </div>
+            `;
         }
 
         /**
