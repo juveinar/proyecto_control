@@ -206,6 +206,14 @@
         .phase-completed .phase-node { background: #00ffc4; color: #00ffc4; }
         .phase-completed .phase-card { border-color: rgba(0, 255, 196, 0.4); }
 
+        .phase-current .phase-node {
+            background: linear-gradient(135deg, #40E0D0, #FFD700);
+            color: #FFD700;
+            box-shadow: 0 0 14px rgba(255, 222, 0, 0.45);
+        }
+        .phase-current .phase-card { border-color: rgba(255, 222, 0, 0.7); box-shadow: 0 0 16px rgba(255, 222, 0, 0.2); }
+        .phase-current .phase-label { color: #ffe978; }
+
         .phase-step.phase-cierre .phase-node {
             background: #00ffc4;
             color: #00ffc4;
@@ -216,14 +224,6 @@
             border-color: rgba(0, 255, 196, 0.75);
             box-shadow: 0 0 16px rgba(0, 255, 196, 0.18);
         }
-
-        .phase-current .phase-node {
-            background: linear-gradient(135deg, #40E0D0, #FFD700);
-            color: #FFD700;
-            box-shadow: 0 0 14px rgba(255, 222, 0, 0.45);
-        }
-        .phase-current .phase-card { border-color: rgba(255, 222, 0, 0.7); box-shadow: 0 0 16px rgba(255, 222, 0, 0.2); }
-        .phase-current .phase-label { color: #ffe978; }
 
         .phase-pending .phase-node { background: #5a6478; color: #5a6478; }
         .phase-pending .phase-card { opacity: 0.85; }

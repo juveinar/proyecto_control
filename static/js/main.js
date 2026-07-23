@@ -397,6 +397,29 @@ const detailColumns = [
         });
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') quickStatusMenu.style.display = 'none';
+
+            const activeTag = document.activeElement?.tagName;
+            const isTypingElement = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
+            const detailsModalEl = document.getElementById('detailsModal');
+            const isDetailsOpen = detailsModalEl && detailsModalEl.classList.contains('show');
+
+            if (!isDetailsOpen || isTypingElement) return;
+
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
+                if (currentIndex < currentVisibleProjectIds.length - 1) {
+                    openDetailsModal(currentVisibleProjectIds[currentIndex + 1]);
+                }
+            }
+
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const currentIndex = currentVisibleProjectIds.indexOf(currentDetailProjectId);
+                if (currentIndex > 0) {
+                    openDetailsModal(currentVisibleProjectIds[currentIndex - 1]);
+                }
+            }
         });
 
         /**
@@ -1013,11 +1036,11 @@ const detailColumns = [
             const currentPhase = fasesList[fasesList.length - 1] || null;
 
             const timelineItems = phaseOrder.map(phaseKey => {
-                const isCompleted = !!fasesMap.get(phaseKey);
-                const isCurrent = currentPhase && currentPhase.fase === phaseKey;
                 const phaseData = fasesMap.get(phaseKey);
+                const isCompleted = !!phaseData;
+                const isCurrent = currentPhase && currentPhase.fase === phaseKey;
                 const statusClass = isCurrent ? 'phase-current' : (isCompleted ? 'phase-completed' : 'phase-pending');
-                const extraClass = phaseKey === 'CIERRE' ? 'phase-cierre' : '';
+                const extraClass = phaseKey === 'CIERRE' && phaseData?.fecha ? 'phase-cierre' : '';
                 const label = phaseLabels[phaseKey] || phaseKey;
                 const dateText = phaseData?.fecha
                     ? new Date(`${phaseData.fecha}T00:00:00`).toLocaleDateString('es-CL', {
