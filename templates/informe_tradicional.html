@@ -7,587 +7,1159 @@
     <title>Informe Ejecutivo - Proyectos en Curso</title>
     <link rel="icon" href="{% static 'img/axionhub.ico' %}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         :root {
-            --primary-color: #4361ee;
-            --secondary-color: #3f37c9;
-            --success-color: #4cc9f0;
-            --warning-color: #f72585;
-            --info-color: #4895ef;
-            --light-bg: #f8f9fa;
-            --dark-text: #212529;
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --primary-subtle: #eff6ff;
+            --secondary: #475569;
+            --success: #15803d;
+            --success-bg: #dcfce7;
+            --warning: #b45309;
+            --warning-bg: #fef3c7;
+            --danger: #b91c1c;
+            --danger-bg: #fee2e2;
+            --info: #0369a1;
+            --info-bg: #e0f2fe;
+            --neutral-bg: #f8fafc;
+            --border-color: #cbd5e1;
+            --border-light: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
         }
 
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
 
         body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: var(--dark-text);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f1f5f9;
+            color: var(--text-main);
+            line-height: 1.45;
+            font-size: 13px;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
 
-        .report-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .report-header {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 25px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        .report-header h1 {
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 10px;
-        }
-
-        .report-meta {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            flex-wrap: wrap;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px solid #e9ecef;
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #6c757d;
-        }
-
-        .meta-item i {
-            color: var(--primary-color);
-        }
-
-        .project-card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-            border-left: 5px solid var(--primary-color);
-        }
-
-        .project-card.status-en-curso {
-            border-left-color: #28a745;
-        }
-
-        .project-card.status-despliegue {
-            border-left-color: #ffc107;
-        }
-
-        .project-header {
+        /* Barra de navegación / herramientas en pantalla */
+        .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            background: #ffffff;
+            border-bottom: 1px solid var(--border-light);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 10px 24px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 10px;
+            align-items: center;
         }
 
-        .project-title {
+        .toolbar-title {
+            font-size: 1.1rem;
             font-weight: 600;
-            color: var(--dark-text);
-            margin-bottom: 5px;
-        }
-
-        .project-rf {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
-
-        .status-badge {
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            text-transform: uppercase;
-        }
-
-        .status-en-curso {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .info-item {
-            background: var(--light-bg);
-            padding: 12px 15px;
-            border-radius: 10px;
-        }
-
-        .info-label {
-            font-size: 0.8rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-        }
-
-        .info-value {
-            font-weight: 600;
-            color: var(--dark-text);
-        }
-
-        .inventory-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px dashed #dee2e6;
-        }
-
-        .inventory-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--primary-color);
-            margin-bottom: 15px;
+            color: var(--primary);
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .inventory-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-
-        .inventory-table th {
-            background: var(--primary-color);
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 500;
-        }
-
-        .inventory-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .inventory-table tr:hover {
-            background: #f8f9fa;
-        }
-
-        .no-inventory {
-            color: #6c757d;
-            font-style: italic;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .summary-section {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-top: 25px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-        }
-
-        .summary-title {
-            font-weight: 600;
-            color: var(--primary-color);
-            margin-bottom: 20px;
+        .toolbar-actions {
             display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
         }
 
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
+        .btn-back {
+            background-color: #ffffff;
+            color: var(--secondary);
+            border-color: var(--border-color);
+        }
+        .btn-back:hover {
+            background-color: #f8fafc;
+            color: var(--text-main);
         }
 
-        .summary-card {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
+        .btn-word {
+            background-color: #2b579a;
+            color: #ffffff;
         }
-
-        .summary-number {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-
-        .summary-label {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-
-        .action-buttons {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-            z-index: 1000;
+        .btn-word:hover {
+            background-color: #1e3f70;
+            color: #ffffff;
         }
 
         .btn-print {
-            background: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background-color: var(--primary);
+            color: #ffffff;
+        }
+        .btn-print:hover {
+            background-color: #172554;
+            color: #ffffff;
+        }
+
+        /* Documento y Contenedor Principal */
+        .report-page {
+            max-width: 1140px;
+            margin: 24px auto;
+            background: #ffffff;
+            padding: 32px 36px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            border: 1px solid var(--border-light);
+        }
+
+        /* Encabezado Corporativo */
+        .header-section {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 18px;
+            margin-bottom: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-title-block h1 {
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0 0 4px 0;
+            letter-spacing: -0.5px;
+        }
+
+        .header-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
             font-weight: 500;
+            margin: 0;
+        }
+
+        .header-meta-box {
+            background-color: var(--neutral-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+            min-width: 260px;
+        }
+
+        .header-meta-box div {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .header-meta-box div:last-child {
+            margin-bottom: 0;
+        }
+        .header-meta-box i {
+            color: var(--primary);
+            font-size: 14px;
+        }
+
+        /* Métricas / KPIs Resumen */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px 14px;
+            border-left: 4px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .kpi-card.kpi-equipos {
+            border-left-color: var(--info);
+        }
+        .kpi-card.kpi-inventario {
+            border-left-color: var(--success);
+        }
+        .kpi-card.kpi-cumplimiento {
+            border-left-color: var(--warning);
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .kpi-value {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.1;
+        }
+
+        .kpi-subtext {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        /* Títulos de Sección */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--neutral-bg);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--primary);
+            padding: 8px 14px;
+            border-radius: 4px;
+            margin-top: 24px;
+            margin-bottom: 14px;
+        }
+
+        .section-header h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0;
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.3s ease;
         }
 
-        .btn-print:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        .section-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
         }
 
-        .footer {
-            text-align: center;
-            padding: 30px;
-            color: rgba(255,255,255,0.8);
-            font-size: 0.9rem;
+        /* Tabla Resumen Ejecutiva */
+        .table-executive {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
         }
 
+        .table-executive th {
+            background-color: #f1f5f9;
+            color: var(--text-main);
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .table-executive td {
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .table-executive tr:nth-child(even) {
+            background-color: #fafbfc;
+        }
+
+        /* Tarjeta de Detalle de Proyecto */
+        .project-detail-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 22px;
+            overflow: hidden;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .project-card-header {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .project-title-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .project-id-tag {
+            background: var(--primary);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .project-title-text {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .project-rf-tag {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            background: #ffffff;
+            padding: 2px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .project-badges {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Badges de Estado */
+        .status-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-en-curso {
+            background-color: var(--success-bg);
+            color: var(--success);
+            border: 1px solid #86efac;
+        }
+
+        .badge-fase {
+            background-color: var(--primary-subtle);
+            color: var(--primary);
+            border: 1px solid #bfdbfe;
+            font-weight: 600;
+        }
+
+        /* Cuerpo de la tarjeta de proyecto */
+        .project-card-body {
+            padding: 14px 16px;
+        }
+
+        /* Cuadrícula de Datos Generales */
+        .info-matrix {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .info-cell {
+            background: #f8fafc;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            padding: 7px 10px;
+        }
+
+        .info-cell-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .info-cell-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
+        .info-cell-value.contact-value {
+            font-weight: 500;
+        }
+
+        /* Cuadrícula de Verificación Técnica / Checklists */
+        .checklist-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin: 12px 0 6px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Tablas Corporativas - Estilos Refinados */
+        .table-executive, .table-tech, .table-inventory {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+        }
+
+        .table-executive th, .table-inventory th {
+            background-color: #f1f5f9;
+            color: #1e293b;
+            font-weight: 700;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .table-executive td, .table-inventory td {
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .table-executive tr:nth-child(even), .table-inventory tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .table-executive tr:hover, .table-inventory tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        /* Tabla de Verificación Técnica Operativa */
+        .table-tech {
+            font-size: 11.5px;
+            margin-bottom: 12px;
+        }
+
+        .table-tech th {
+            background-color: #f8fafc;
+            color: var(--secondary);
+            font-weight: 700;
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .table-tech td {
+            padding: 5px 10px;
+            border: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .table-tech tr:nth-child(even) {
+            background-color: #fbfcfe;
+        }
+
+        .tech-label-cell {
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tech-label-cell i {
+            color: var(--primary);
+            font-size: 13px;
+        }
+
+        .badge-success {
+            background-color: var(--success-bg);
+            color: var(--success);
+            border: 1px solid #86efac;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .badge-warning {
+            background-color: var(--warning-bg);
+            color: var(--warning);
+            border: 1px solid #fde68a;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .badge-danger {
+            background-color: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid #fecaca;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .badge-secondary {
+            background-color: #f1f5f9;
+            color: #64748b;
+            border: 1px solid var(--border-light);
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        /* Historial de Fases */
+        .phase-history-container {
+            background: #f8fafc;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .phase-history-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .phase-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 2px 8px;
+            border-radius: 12px;
+            color: var(--primary);
+        }
+
+        .phase-pill .phase-date {
+            color: var(--text-muted);
+            font-size: 10.5px;
+            font-weight: 400;
+        }
+
+        /* Inventario de Equipos */
+        .inventory-box {
+            margin-top: 10px;
+        }
+
+        .inventory-box-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .no-inventory-alert {
+            background: #f8fafc;
+            border: 1px dashed var(--border-color);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Observaciones */
+        .notes-box {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-left: 3px solid #f59e0b;
+            border-radius: 4px;
+            padding: 7px 10px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .notes-box-title {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #b45309;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .notes-box-content {
+            color: #78350f;
+            white-space: pre-line;
+            line-height: 1.35;
+        }
+
+        /* Pie de página */
+        .report-footer {
+            margin-top: 28px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ==================== REGLAS ESPECÍFICAS PARA IMPRESIÓN ==================== */
         @media print {
+            @page {
+                size: letter portrait;
+                margin: 1.2cm 1cm 1.2cm 1cm;
+            }
+
             body {
-                background: white;
+                background: #ffffff !important;
+                font-size: 11.5px;
             }
 
-            .action-buttons {
-                display: none;
+            .toolbar {
+                display: none !important;
             }
 
-            .report-container {
-                padding: 0;
+            .report-page {
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
             }
 
-            .project-card {
-                break-inside: avoid;
-                box-shadow: none;
-                border: 1px solid #dee2e6;
+            .header-section {
+                margin-bottom: 14px;
+                padding-bottom: 10px;
             }
 
-            .summary-section {
-                break-inside: avoid;
-                box-shadow: none;
-                border: 1px solid #dee2e6;
+            .header-title-block h1 {
+                font-size: 1.4rem;
+            }
+
+            .kpi-grid {
+                margin-bottom: 16px;
+                gap: 8px;
+            }
+
+            .kpi-card {
+                padding: 8px 10px;
+            }
+
+            .kpi-value {
+                font-size: 1.3rem;
+            }
+
+            .project-detail-card {
+                border: 1px solid #94a3b8 !important;
+                margin-bottom: 16px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .project-card-header {
+                background: #f1f5f9 !important;
+                padding: 8px 12px;
+            }
+
+            .project-card-body {
+                padding: 10px 12px;
+            }
+
+            .info-cell {
+                background: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                padding: 5px 8px;
+            }
+
+            .tech-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 4px;
+            }
+
+            .tech-box {
+                border: 1px solid #cbd5e1 !important;
+                padding: 4px 6px;
+            }
+
+            .table-executive, .table-inventory {
+                border: 1px solid #94a3b8 !important;
+                font-size: 10.5px;
+            }
+
+            .table-executive th, .table-inventory th {
+                background-color: #f1f5f9 !important;
+                border: 1px solid #94a3b8 !important;
+            }
+
+            .table-executive td, .table-inventory td {
+                border: 1px solid #cbd5e1 !important;
+                padding: 4px 6px;
+            }
+
+            .page-break-before {
+                page-break-before: always !important;
+                break-before: page !important;
             }
         }
 
-        @media (max-width: 768px) {
-            .report-header {
-                padding: 20px;
+        @media (max-width: 992px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
-
-            .project-card {
-                padding: 20px;
+            .info-matrix {
+                grid-template-columns: repeat(2, 1fr);
             }
+            .tech-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
 
-            .info-grid {
+        @media (max-width: 576px) {
+            .toolbar {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .toolbar-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .kpi-grid {
                 grid-template-columns: 1fr;
             }
-
-            .inventory-table {
-                font-size: 0.8rem;
+            .info-matrix {
+                grid-template-columns: 1fr;
             }
-
-            .inventory-table th,
-            .inventory-table td {
-                padding: 8px;
+            .tech-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
 </head>
 <body>
-    <div class="action-buttons">
-        <a href="{% url 'index' %}" class="btn-print">
-            <i class="bi bi-arrow-left"></i> Volver
-        </a>
-        <a href="{% url 'exportar_informe_word' %}" class="btn-print" style="background-color: #2b579a; color: white;">
-            <i class="bi bi-file-word"></i> Exportar Word
-        </a>
-        <button onclick="window.print()" class="btn-print">
-            <i class="bi bi-printer"></i> Imprimir / PDF
-        </button>
+
+    <!-- Barra de Herramientas Superior (Oculta al imprimir) -->
+    <div class="toolbar">
+        <div class="toolbar-title">
+            <i class="bi bi-file-earmark-bar-graph-fill"></i>
+            <span>Portal de Proyectos &mdash; Informe Tradicional</span>
+        </div>
+        <div class="toolbar-actions">
+            <a href="{% url 'index' %}" class="btn-action btn-back">
+                <i class="bi bi-arrow-left"></i> Volver al Portal
+            </a>
+            <a href="{% url 'exportar_informe_word' %}" class="btn-action btn-word">
+                <i class="bi bi-file-earmark-word-fill"></i> Exportar Word (.docx)
+            </a>
+            <button onclick="window.print()" class="btn-action btn-print">
+                <i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF
+            </button>
+        </div>
     </div>
 
-    <div class="report-container">
-        <div class="report-header">
-            <h1><i class="bi bi-clipboard-data"></i> Informe Ejecutivo</h1>
-            <p class="text-muted">Proyectos en Curso - Estado Actual</p>
+    <!-- Contenedor Principal del Informe -->
+    <div class="report-page">
 
-            <div class="report-meta">
-                <div class="meta-item">
-                    <i class="bi bi-calendar-event"></i>
-                    <span>Generado: {{ fecha_generacion }}</span>
-                </div>
-                <div class="meta-item">
-                    <i class="bi bi-person"></i>
-                    <span>Generado por: {{ usuario }}</span>
-                </div>
-                <div class="meta-item">
-                    <i class="bi bi-folder"></i>
-                    <span>Total Proyectos: {{ total_proyectos }}</span>
-                </div>
+        <!-- Encabezado del Informe -->
+        <header class="header-section">
+            <div class="header-title-block">
+                <h1>Informe Ejecutivo de Proyectos</h1>
+                <p class="header-subtitle">Control y Seguimiento de Infraestructura &bull; Estado: <strong style="color: var(--success);">En Curso</strong></p>
             </div>
-        </div>
-
-        <!-- Tabla Resumen de Proyectos -->
-        <div class="project-card">
-            <h4 style="color: var(--primary-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                <i class="bi bi-list-ol"></i> Listado de Proyectos en Curso
-            </h4>
-            <div class="table-responsive">
-                <table class="inventory-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>ID Proyecto</th>
-                            <th>Nombre del Proyecto</th>
-                            <th>RF</th>
-                            <th>Líder</th>
-                            <th>Contacto</th>
-                            <th>Fecha Inicio</th>
-                            <th>Equipos</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for proyecto in proyectos %}
-                        <tr>
-                            <td>{{ forloop.counter }}</td>
-                            <td><strong>{{ proyecto.id_project }}</strong></td>
-                            <td>{{ proyecto.project }}</td>
-                            <td>{{ proyecto.rf|default:"N/A" }}</td>
-                            <td>{{ proyecto.project_leader|default:"N/A" }}</td>
-                            <td>{% if proyecto.contacto %}{{ proyecto.contacto.nombre }}{% else %}-{% endif %}</td>
-                            <td>{{ proyecto.start|default:"N/A"|date:"d/m/Y" }}</td>
-                            <td>{{ proyecto.inventario_equipos.count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Detalle de Proyectos -->
-        <div style="page-break-before: always; margin-top: 30px;">
-            <h4 style="color: var(--primary-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                <i class="bi bi-card-list"></i> Detalle de Proyectos
-            </h4>
-        </div>
-
-        {% for proyecto in proyectos %}
-        <div class="project-card status-{{ proyecto.estado|lower|cut:' ' }}">
-            <div class="project-header">
+            <div class="header-meta-box">
                 <div>
-                    <h3 class="project-title">{{ proyecto.project }}</h3>
-                    <span class="project-rf">
-                        <i class="bi bi-upc-scan"></i> RF: {{ proyecto.rf|default:"Sin RF" }} |
-                        <i class="bi bi-hash"></i> ID: {{ proyecto.id_project }}
-                    </span>
+                    <i class="bi bi-calendar3"></i>
+                    <span><strong>Fecha:</strong> {{ fecha_generacion }}</span>
                 </div>
-                <span class="status-badge status-{{ proyecto.estado|lower|cut:' ' }}">
-                    {{ proyecto.estado }}
-                </span>
+                <div>
+                    <i class="bi bi-person-fill"></i>
+                    <span><strong>Generado por:</strong> {{ usuario }}</span>
+                </div>
+                <div>
+                    <i class="bi bi-shield-check"></i>
+                    <span><strong>Filtro aplicado:</strong> Exclusivamente proyectos en ejecución</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Indicadores Resumen / KPIs -->
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <span class="kpi-label">Proyectos en Curso</span>
+                <span class="kpi-value">{{ total_proyectos }}</span>
+                <span class="kpi-subtext">Proyectos activos monitoreados</span>
+            </div>
+            <div class="kpi-card kpi-equipos">
+                <span class="kpi-label">Infraestructura Asignada</span>
+                <span class="kpi-value">{{ total_equipos }}</span>
+                <span class="kpi-subtext">Total servidores / equipos</span>
+            </div>
+            <div class="kpi-card kpi-inventario">
+                <span class="kpi-label">Con Inventario</span>
+                <span class="kpi-value">{{ proyectos_con_inventario }} <span style="font-size: 1rem; font-weight: normal; color: var(--text-muted);">/ {{ total_proyectos }}</span></span>
+                <span class="kpi-subtext">{{ proyectos_sin_inventario }} proyectos sin equipos cargados</span>
+            </div>
+            <div class="kpi-card kpi-cumplimiento">
+                <span class="kpi-label">Cumplimiento Técnico</span>
+                <span class="kpi-value">{{ porcentaje_global_tecnico }}%</span>
+                <span class="kpi-subtext">Checklists operativos completados</span>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 1: TABLA RESUMEN EJECUTIVO -->
+        <section>
+            <div class="section-header">
+                <h2><i class="bi bi-table"></i> 1. Resumen Consolidado de Proyectos en Curso</h2>
+                <span class="section-badge">{{ total_proyectos }} Registros</span>
             </div>
 
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label"><i class="bi bi-person-badge"></i> Líder de Proyecto</div>
-                    <div class="info-value">{{ proyecto.project_leader|default:"No asignado" }}</div>
-                </div>
+            <table class="table-executive">
+                <thead>
+                    <tr>
+                        <th style="width: 4%;">#</th>
+                        <th style="width: 8%;">ID</th>
+                        <th style="width: 10%;">RF</th>
+                        <th style="width: 28%;">Nombre del Proyecto</th>
+                        <th style="width: 16%;">Fase Actual</th>
+                        <th style="width: 18%;">Contacto Principal</th>
+                        <th style="width: 9%;">Inicio</th>
+                        <th style="width: 7%; text-align: center;">Equipos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in proyectos_data %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ item.obj.id_project }}</strong></td>
+                        <td>{{ item.obj.rf|default:"&mdash;" }}</td>
+                        <td><strong>{{ item.obj.project|default:"Sin nombre" }}</strong></td>
+                        <td>
+                            <span class="status-badge badge-fase" style="font-size: 10px;">
+                                {{ item.fase_actual }}
+                            </span>
+                            <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">{{ item.fase_fecha }}</div>
+                        </td>
+                        <td>
+                            {% if item.obj.contacto %}
+                                <div style="font-weight: 600;">{{ item.obj.contacto.nombre }}</div>
+                                {% if item.obj.contacto.area or item.obj.contacto.cargo %}
+                                    <div style="font-size: 10.5px; color: var(--text-muted);">{{ item.obj.contacto.cargo|default:item.obj.contacto.area }}</div>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: var(--text-muted); font-style: italic;">Sin asignar</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.obj.start|default:"&mdash;"|date:"d/m/Y" }}</td>
+                        <td style="text-align: center;">
+                            {% if item.cantidad_equipos > 0 %}
+                                <span class="badge bg-primary rounded-pill">{{ item.cantidad_equipos }}</span>
+                            {% else %}
+                                <span style="color: var(--text-muted);">&mdash;</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">
+                            <i class="bi bi-info-circle"></i> No se encontraron proyectos con estado "En Curso".
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
 
-                <div class="info-item">
-                    <div class="info-label"><i class="bi bi-calendar-start"></i> Fecha Inicio</div>
-                    <div class="info-value">{{ proyecto.start|default:"Sin definir"|date:"d/m/Y" }}</div>
-                </div>
+        <!-- SECCIÓN 2: DETALLE EXTENDIDO POR PROYECTO -->
+        <section class="page-break-before">
+            <div class="section-header">
+                <h2><i class="bi bi-card-checklist"></i> 2. Detalle Técnico e Infraestructura por Proyecto</h2>
+                <span class="section-badge">Fichas Individuales</span>
+            </div>
 
-                <div class="info-item">
-                    <div class="info-label"><i class="bi bi-calendar-end"></i> Fecha Fin</div>
-                    <div class="info-value">{{ proyecto.finish|default:"Sin definir"|date:"d/m/Y" }}</div>
-                </div>
-
-                <div class="info-item">
-                    <div class="info-label"><i class="bi bi-envelope"></i> Contacto</div>
-                    <div class="info-value">
-                        {% if proyecto.contacto %}
-                            {{ proyecto.contacto.nombre }}
-                            {% if proyecto.contacto.telefono %}<br><small><i class="bi bi-telephone"></i> {{ proyecto.contacto.telefono }}</small>{% endif %}
-                            {% if proyecto.contacto.correo %}<br><small><i class="bi bi-envelope-at"></i> {{ proyecto.contacto.correo }}</small>{% endif %}
-                        {% else %}
-                            <span style="color: #dc3545;">Sin contacto asignado</span>
+            {% for item in proyectos_data %}
+            <article class="project-detail-card">
+                <!-- Cabecera de Proyecto -->
+                <div class="project-card-header">
+                    <div class="project-title-area">
+                        <span class="project-id-tag">ID {{ item.obj.id_project }}</span>
+                        <h3 class="project-title-text">{{ item.obj.project }}</h3>
+                        {% if item.obj.rf %}
+                        <span class="project-rf-tag"><i class="bi bi-upc"></i> RF: {{ item.obj.rf }}</span>
                         {% endif %}
+                    </div>
+                    <div class="project-badges">
+                        <span class="status-badge badge-en-curso">
+                            <i class="bi bi-play-circle-fill"></i> {{ item.obj.estado }}
+                        </span>
+                        <span class="status-badge badge-fase">
+                            <i class="bi bi-flag-fill"></i> Fase: {{ item.fase_actual }} ({{ item.fase_fecha }})
+                        </span>
                     </div>
                 </div>
 
-                <div class="info-item">
-                    <div class="info-label"><i class="bi bi-layers"></i> Plataforma</div>
-                    <div class="info-value">{{ proyecto.plataforma|default:"No definida" }}</div>
-                </div>
+                <div class="project-card-body">
+                    <!-- Matriz de Información General -->
+                    <div class="info-matrix">
+                        <div class="info-cell">
+                            <div class="info-cell-label"><i class="bi bi-person-gear"></i> Líder de Proyecto</div>
+                            <div class="info-cell-value">{{ item.obj.project_leader|default:"No especificado" }}</div>
+                        </div>
 
-                <div class="info-item">
-                    <div class="info-label"><i class="bi bi-hdd-rack"></i> Cantidad Máquinas</div>
-                    <div class="info-value">{{ proyecto.cantidad_maquinas|default:"Sin definir" }}</div>
-                </div>
-            </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label"><i class="bi bi-person-lines-fill"></i> Contacto Principal</div>
+                            <div class="info-cell-value contact-value">
+                                {% if item.obj.contacto %}
+                                    {{ item.obj.contacto.nombre }}
+                                    {% if item.obj.contacto.telefono %}<br><small style="color: var(--text-muted);"><i class="bi bi-telephone"></i> {{ item.obj.contacto.telefono }}</small>{% endif %}
+                                    {% if item.obj.contacto.correo %}<br><small style="color: var(--text-muted);"><i class="bi bi-envelope"></i> {{ item.obj.contacto.correo }}</small>{% endif %}
+                                {% else %}
+                                    <span style="color: var(--danger);">No asignado</span>
+                                {% endif %}
+                            </div>
+                        </div>
 
-            {% if proyecto.observaciones %}
-            <div class="info-item" style="margin-bottom: 15px; background: #fff3cd;">
-                <div class="info-label"><i class="bi bi-exclamation-triangle"></i> Observaciones</div>
-                <div class="info-value" style="font-weight: 400; font-size: 0.9rem; white-space: pre-line;">{{ proyecto.observaciones }}</div>
-            </div>
-            {% endif %}
+                        <div class="info-cell">
+                            <div class="info-cell-label"><i class="bi bi-calendar-event"></i> Fechas (Inicio / Fin)</div>
+                            <div class="info-cell-value">
+                                Inicio: {{ item.obj.start|default:"N/D"|date:"d/m/Y" }}<br>
+                                Fin: {{ item.obj.finish|default:"N/D"|date:"d/m/Y" }}
+                            </div>
+                        </div>
+                    </div>
 
-            <div class="inventory-section">
-                <div class="inventory-title">
-                    <i class="bi bi-pc-display"></i>
-                    Inventario de Equipos ({{ proyecto.inventario_equipos.count }})
-                </div>
+                    <!-- Historial de Fases Registradas (si aplica) -->
+                    {% if item.historial_fases %}
+                    <div class="phase-history-container">
+                        <span class="phase-history-label"><i class="bi bi-clock-history"></i> Historial de Fases:</span>
+                        {% for f in item.historial_fases %}
+                        <span class="phase-pill">
+                            <i class="bi bi-check2-circle"></i> {{ f.get_fase_display }}:
+                            <span class="phase-date">{{ f.fecha|date:"d/m/Y" }}</span>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
 
-                {% if proyecto.inventario_equipos.exists %}
-                <div class="table-responsive">
-                    <table class="inventory-table">
+                    <!-- Matriz de Verificación Técnica / Checklists con Títulos de Columna -->
+                    <div class="checklist-title">
+                        <span><i class="bi bi-list-check"></i> Verificación Técnica Operativa</span>
+                        <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">
+                            Avance: <strong>{{ item.tareas_ok }}</strong> de {{ item.tareas_total }} verificaciones ({{ item.porcentaje_tecnico }}%)
+                        </span>
+                    </div>
+
+                    <table class="table-tech">
                         <thead>
                             <tr>
-                                <th>Hostname</th>
-                                <th>Tipo</th>
-                                <th>CPU</th>
-                                <th>RAM</th>
-                                <th>IP Gestión</th>
-                                <th>IP Servicios</th>
-                                <th>Sistema Operativo</th>
+                                <th style="width: 32%;">Parámetro de Verificación</th>
+                                <th style="width: 18%; text-align: center;">Estado</th>
+                                <th style="width: 32%;">Parámetro de Verificación</th>
+                                <th style="width: 18%; text-align: center;">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in proyecto.inventario_equipos.all %}
+                            {% for fila in item.items_tecnicos_filas %}
                             <tr>
-                                <td><strong>{{ item.hostname|default:"N/A" }}</strong></td>
-                                <td>{{ item.tipo_equipo|default:"N/A" }}</td>
-                                <td>{{ item.cpu|default:"N/A" }}</td>
-                                <td>{{ item.ram|default:"N/A" }}</td>
-                                <td>{{ item.ip_gestion|default:"N/A" }}</td>
-                                <td>{{ item.ip_servicios|default:"N/A" }}</td>
-                                <td>{{ item.sistema_operativo|default:"N/A" }}</td>
+                                <!-- Columna Izquierda -->
+                                <td>
+                                    {% if fila.izq %}
+                                    <div class="tech-label-cell">
+                                        <i class="bi {{ fila.izq.icono }}"></i>
+                                        <span>{{ fila.izq.label }}</span>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: center;">
+                                    {% if fila.izq %}
+                                    <span class="{{ fila.izq.clase }}">{{ fila.izq.valor }}</span>
+                                    {% endif %}
+                                </td>
+
+                                <!-- Columna Derecha -->
+                                <td>
+                                    {% if fila.der %}
+                                    <div class="tech-label-cell">
+                                        <i class="bi {{ fila.der.icono }}"></i>
+                                        <span>{{ fila.der.label }}</span>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: center;">
+                                    {% if fila.der %}
+                                    <span class="{{ fila.der.clase }}">{{ fila.der.valor }}</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
-                </div>
-                {% else %}
-                <div class="no-inventory">
-                    <i class="bi bi-info-circle"></i> No hay equipos registrados en el inventario para este proyecto.
-                </div>
-                {% endif %}
-            </div>
 
-            <!-- Tareas Pendientes -->
-            {% if proyecto.ntp != "Completado" or proyecto.scan != "Completado" or proyecto.antivirus != "Completado" or proyecto.monitoreo_nagios != "Completado" %}
-            <div class="inventory-section">
-                <div class="inventory-title">
-                    <i class="bi bi-list-check"></i> Tareas Pendientes
-                </div>
-                <div class="info-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-                    {% if proyecto.ntp != "Completado" %}
-                    <div class="info-item" style="background: #f8d7da;">
-                        <div class="info-label"><i class="bi bi-clock"></i> NTP</div>
-                        <div class="info-value" style="color: #721c24;">{{ proyecto.ntp }}</div>
+                    <!-- Datos Técnicos Complementarios si existen -->
+                    {% if item.obj.computo or item.obj.servicio or item.obj.proveedor or item.obj.base_de_datos or item.obj.balanceo %}
+                    <div class="info-matrix" style="grid-template-columns: repeat(3, 1fr); margin-top: 6px; margin-bottom: 8px;">
+                        {% if item.obj.computo %}
+                        <div class="info-cell">
+                            <div class="info-cell-label"><i class="bi bi-cpu"></i> Cómputo</div>
+                            <div class="info-cell-value" style="font-size: 11.5px;">{{ item.obj.computo }}</div>
+                        </div>
+                        {% endif %}
+                        {% if item.obj.servicio or item.obj.proveedor %}
+                        <div class="info-cell">
+                            <div class="info-cell-label"><i class="bi bi-briefcase"></i> Servicio / Proveedor</div>
+                            <div class="info-cell-value" style="font-size: 11.5px;">
+                                {{ item.obj.servicio|default:"Servicio N/D" }}
+                                {% if item.obj.proveedor %}<br><small style="color: var(--text-muted);">Prov: {{ item.obj.proveedor }}</small>{% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if item.obj.base_de_datos or item.obj.balanceo %}
+                        <div class="info-cell">
+                            <div class="info-cell-label"><i class="bi bi-diagram-3"></i> Base de Datos / Balanceo</div>
+                            <div class="info-cell-value" style="font-size: 11.5px;">
+                                BD: {{ item.obj.base_de_datos|default:"N/A" }} &bull; Balanceo: {{ item.obj.balanceo|default:"N/A" }}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     {% endif %}
-                    {% if proyecto.scan != "Completado" %}
-                    <div class="info-item" style="background: #f8d7da;">
-                        <div class="info-label"><i class="bi bi-shield-exclamation"></i> SCAN</div>
-                        <div class="info-value" style="color: #721c24;">{{ proyecto.scan }}</div>
-                    </div>
-                    {% endif %}
-                    {% if proyecto.antivirus != "Completado" %}
-                    <div class="info-item" style="background: #f8d7da;">
-                        <div class="info-label"><i class="bi bi-virus"></i> Antivirus</div>
-                        <div class="info-value" style="color: #721c24;">{{ proyecto.antivirus }}</div>
-                    </div>
-                    {% endif %}
-                    {% if proyecto.monitoreo_nagios != "Completado" %}
-                    <div class="info-item" style="background: #f8d7da;">
-                        <div class="info-label"><i class="bi bi-activity"></i> Monitoreo Nagios</div>
-                        <div class="info-value" style="color: #721c24;">{{ proyecto.monitoreo_nagios }}</div>
-                    </div>
-                    {% endif %}
-                    {% if proyecto.config_backup != "Completado" %}
-                    <div class="info-item" style="background: #f8d7da;">
-                        <div class="info-label"><i class="bi bi-save"></i> Config Backup</div>
-                        <div class="info-value" style="color: #721c24;">{{ proyecto.config_backup }}</div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        {% empty %}
-        <div class="project-card">
-            <div class="text-center py-5">
-                <i class="bi bi-inbox" style="font-size: 3rem; color: #6c757d;"></i>
-                <h4 class="mt-3 text-muted">No hay proyectos en curso</h4>
-                <p class="text-muted">No se encontraron proyectos con estado "En Curso" para incluir en el informe.</p>
-            </div>
-        </div>
-        {% endfor %}
 
-        <!-- Resumen -->
-        <div class="summary-section">
-            <h4 class="summary-title">
-                <i class="bi bi-graph-up"></i> Resumen del Informe
-            </h4>
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <div class="summary-number">{{ total_proyectos }}</div>
-                    <div class="summary-label">Proyectos en Curso</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-number">{{ total_equipos }}</div>
-                    <div class="summary-label">Total Equipos</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-number">{{ proyectos_con_inventario }}</div>
-                    <div class="summary-label">Con Inventario</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-number">{{ proyectos_sin_inventario }}</div>
-                    <div class="summary-label">Sin Inventario</div>
-                </div>
-            </div>
-        </div>
+                    <!-- Inventario de Equipos -->
+                    <div class="inventory-box">
+                        <div class="inventory-box-title">
+                            <i class="bi bi-pc-display-horizontal"></i>
+                            <span>Inventario de Equipos ({{ item.cantidad_equipos }})</span>
+                        </div>
 
-        <div class="footer">
-            <p><i class="bi bi-building"></i> Informe generado desde Portal de Control de Proyectos</p>
-            <p style="font-size: 0.8rem; margin-top: 5px;">{{ fecha_generacion }} | {{ usuario }}</p>
-        </div>
+                        {% if item.equipos %}
+                        <table class="table-inventory">
+                            <thead>
+                                <tr>
+                                    <th style="width: 17%;">Hostname</th>
+                                    <th style="width: 11%;">Tipo</th>
+                                    <th style="width: 11%;">Ubicación</th>
+                                    <th style="width: 10%;">CPU / RAM</th>
+                                    <th style="width: 12%;">IP Gestión</th>
+                                    <th style="width: 12%;">IP Servicios</th>
+                                    <th style="width: 12%;">IP Producción</th>
+                                    <th style="width: 15%;">Sistema Operativo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for eq in item.equipos %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ eq.hostname|default:"Sin Hostname" }}</strong>
+                                        {% if eq.codigo or eq.ot %}
+                                            <div style="font-size: 10px; color: var(--text-muted);">
+                                                {% if eq.codigo %}Cód: {{ eq.codigo }}{% endif %}
+                                                {% if eq.ot %} &bull; OT: {{ eq.ot }}{% endif %}
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ eq.tipo_equipo|default:"N/D" }}</td>
+                                    <td>{{ eq.ubicacion|default:"&mdash;" }}</td>
+                                    <td>
+                                        CPU: {{ eq.cpu|default:"-" }}<br>
+                                        RAM: {{ eq.ram|default:"-" }}
+                                    </td>
+                                    <td>{{ eq.ip_gestion|default:"&mdash;" }}</td>
+                                    <td>{{ eq.ip_servicios|default:"&mdash;" }}</td>
+                                    <td>{{ eq.ip_produccion|default:"&mdash;" }}</td>
+                                    <td>{{ eq.sistema_operativo|default:"N/D" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="no-inventory-alert">
+                            <i class="bi bi-info-circle-fill"></i>
+                            <span>No hay equipos registrados en el inventario para este proyecto.</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Observaciones -->
+                    {% if item.obj.observaciones %}
+                    <div class="notes-box">
+                        <div class="notes-box-title">
+                            <i class="bi bi-exclamation-circle-fill"></i> Observaciones / Notas
+                        </div>
+                        <div class="notes-box-content">{{ item.obj.observaciones }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </section>
+
+        <!-- Pie de Página del Informe -->
+        <footer class="report-footer">
+            <div>
+                <strong>Portal de Control de Proyectos</strong> &mdash; Sistema de Seguimiento e Infraestructura TI
+            </div>
+            <div>
+                Documento generado el {{ fecha_generacion }} por {{ usuario }}
+            </div>
+        </footer>
+
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1321,23 +1321,121 @@ def generar_informe_ia(request):
 @login_required
 def generar_informe_tradicional(request):
     """Generar informe ejecutivo tradicional en HTML para impresión/PDF"""
-    # Obtener proyectos en curso con contacto e inventario relacionado
-    proyectos = Proyecto.objects.filter(estado='En Curso').select_related('contacto').prefetch_related('inventario_equipos').order_by('id_project')
+    # Obtener proyectos estrictamente 'En Curso' con relaciones precargadas
+    proyectos_qs = Proyecto.objects.filter(estado__iexact='En Curso')\
+        .select_related('contacto')\
+        .prefetch_related('inventario_equipos', 'fases')\
+        .order_by('id_project')
 
-    # Calcular estadísticas
-    total_proyectos = proyectos.count()
-    total_equipos = sum(p.inventario_equipos.count() for p in proyectos)
-    proyectos_con_inventario = sum(1 for p in proyectos if p.inventario_equipos.exists())
+    proyectos_data = []
+    total_equipos = 0
+    total_tareas_ok = 0
+    total_tareas_total = 0
+
+    # Lista de campos de verificación técnica a evaluar
+    campos_tecnicos_claves = [
+        ('NTP', 'ntp', 'bi-clock'),
+        ('SCAN', 'scan', 'bi-shield-check'),
+        ('Resuelve DNS', 'resuelve_por_nombre', 'bi-globe'),
+        ('Antivirus', 'antivirus', 'bi-shield-shaded'),
+        ('Config Backup', 'config_backup', 'bi-hdd-network'),
+        ('Monitoreo Nagios', 'monitoreo_nagios', 'bi-activity'),
+        ('Monitoreo Elastic', 'monitoreo_elastic', 'bi-graph-up'),
+        ('UCMDB', 'ucmdb', 'bi-database'),
+        ('Conectividad AWX', 'conectividad_awx', 'bi-terminal'),
+        ('Paso Operación (OLA)', 'cambio_paso_operacion_ola', 'bi-arrow-left-right'),
+        ('Licencia Windows', 'windows_licencia_activada', 'bi-windows'),
+    ]
+
+    for p in proyectos_qs:
+        # Obtener fase más reciente
+        fase_reciente = p.fases.order_by('-fecha', '-created_at').first()
+        fase_actual_str = fase_reciente.get_fase_display() if fase_reciente else "Despliegue"
+        fase_fecha_str = fase_reciente.fecha.strftime('%d/%m/%Y') if fase_reciente else (p.start.strftime('%d/%m/%Y') if p.start else "N/A")
+
+        # Historial de fases
+        historial_fases = list(p.fases.order_by('fecha', 'created_at'))
+
+        # Inventario
+        equipos = list(p.inventario_equipos.all().order_by('hostname', 'tipo_equipo'))
+        total_equipos += len(equipos)
+
+        # Chequeo de checklists técnicos
+        items_tecnicos = []
+        p_tareas_ok = 0
+        p_tareas_total = 0
+
+        for nombre_label, attr_name, icono in campos_tecnicos_claves:
+            val = getattr(p, attr_name, None) or 'Pendiente'
+            val_limpio = str(val).strip()
+            val_lower = val_limpio.lower()
+
+            # Clasificación de estado
+            if val_lower in ['completado', 'ok', 'cumple', 'si', 'sí', 'instalado', 'activo']:
+                estado_clase = 'badge-success'
+                estado_tipo = 'ok'
+                p_tareas_ok += 1
+            elif val_lower in ['en curso', 'en progreso', 'proceso', 'en ejecucion']:
+                estado_clase = 'badge-warning'
+                estado_tipo = 'proceso'
+            elif val_lower in ['n/a', 'no aplica', 'no requiere']:
+                estado_clase = 'badge-secondary'
+                estado_tipo = 'na'
+            else:
+                estado_clase = 'badge-danger'
+                estado_tipo = 'pendiente'
+
+            if estado_tipo != 'na':
+                p_tareas_total += 1
+
+            items_tecnicos.append({
+                'label': nombre_label,
+                'valor': val_limpio,
+                'clase': estado_clase,
+                'tipo': estado_tipo,
+                'icono': icono
+            })
+
+        total_tareas_ok += p_tareas_ok
+        total_tareas_total += p_tareas_total
+        porcentaje_avance_tecnico = int((p_tareas_ok / p_tareas_total * 100)) if p_tareas_total > 0 else 0
+
+        # Agrupar en pares de filas para renderizado en tabla de 4 columnas (Izq y Der)
+        half_idx = (len(items_tecnicos) + 1) // 2
+        items_tecnicos_filas = []
+        for i in range(half_idx):
+            izq = items_tecnicos[i] if i < len(items_tecnicos) else None
+            der = items_tecnicos[i + half_idx] if (i + half_idx) < len(items_tecnicos) else None
+            items_tecnicos_filas.append({'izq': izq, 'der': der})
+
+        proyectos_data.append({
+            'obj': p,
+            'fase_actual': fase_actual_str,
+            'fase_fecha': fase_fecha_str,
+            'historial_fases': historial_fases,
+            'equipos': equipos,
+            'cantidad_equipos': len(equipos),
+            'items_tecnicos': items_tecnicos,
+            'items_tecnicos_filas': items_tecnicos_filas,
+            'tareas_ok': p_tareas_ok,
+            'tareas_total': p_tareas_total,
+            'porcentaje_tecnico': porcentaje_avance_tecnico,
+        })
+
+    total_proyectos = len(proyectos_data)
+    proyectos_con_inventario = sum(1 for item in proyectos_data if item['cantidad_equipos'] > 0)
     proyectos_sin_inventario = total_proyectos - proyectos_con_inventario
+    porcentaje_global_tecnico = int((total_tareas_ok / total_tareas_total * 100)) if total_tareas_total > 0 else 0
 
     context = {
-        'proyectos': proyectos,
+        'proyectos_data': proyectos_data,
         'total_proyectos': total_proyectos,
         'total_equipos': total_equipos,
         'proyectos_con_inventario': proyectos_con_inventario,
         'proyectos_sin_inventario': proyectos_sin_inventario,
+        'porcentaje_global_tecnico': porcentaje_global_tecnico,
         'fecha_generacion': timezone.now().strftime('%d/%m/%Y %H:%M'),
-        'usuario': request.user.get_full_name() or request.user.username,
+        'usuario': request.user.get_full_name() or request.user.username or 'Administrador',
     }
 
     return render(request, 'informe_tradicional.html', context)
@@ -1363,140 +1461,318 @@ def inventory_projects_in_progress(request):
 
 @login_required
 def exportar_informe_word(request):
-    """Exportar informe ejecutivo a Word (DOCX)"""
-    # Obtener proyectos en curso con contacto e inventario relacionado
-    proyectos = Proyecto.objects.filter(estado='En Curso').select_related('contacto').prefetch_related('inventario_equipos').order_by('id_project')
+    """Exportar informe ejecutivo a Word (DOCX) con paridad total al informe HTML"""
+    # Obtener proyectos estrictamente 'En Curso' con relaciones precargadas
+    proyectos_qs = Proyecto.objects.filter(estado__iexact='En Curso')\
+        .select_related('contacto')\
+        .prefetch_related('inventario_equipos', 'fases')\
+        .order_by('id_project')
 
     # Crear documento Word
     doc = Document()
 
-    # Configurar márgenes
-    sections = doc.sections
-    for section in sections:
+    # Configurar márgenes a 1 pulgada (2.54 cm)
+    for section in doc.sections:
         section.top_margin = Inches(1)
         section.bottom_margin = Inches(1)
         section.left_margin = Inches(1)
         section.right_margin = Inches(1)
 
-    # Título principal
-    titulo = doc.add_heading('Informe Ejecutivo - Proyectos en Curso', 0)
+    # Campos técnicos a evaluar
+    campos_tecnicos_claves = [
+        ('NTP', 'ntp'),
+        ('SCAN', 'scan'),
+        ('Resuelve DNS', 'resuelve_por_nombre'),
+        ('Antivirus', 'antivirus'),
+        ('Config Backup', 'config_backup'),
+        ('Monitoreo Nagios', 'monitoreo_nagios'),
+        ('Monitoreo Elastic', 'monitoreo_elastic'),
+        ('UCMDB', 'ucmdb'),
+        ('Conectividad AWX', 'conectividad_awx'),
+        ('Paso Operación (OLA)', 'cambio_paso_operacion_ola'),
+        ('Licencia Windows', 'windows_licencia_activada'),
+    ]
+
+    # Pre-procesar datos y métricas
+    proyectos_data = []
+    total_equipos = 0
+    total_tareas_ok = 0
+    total_tareas_total = 0
+
+    for p in proyectos_qs:
+        fase_reciente = p.fases.order_by('-fecha', '-created_at').first()
+        fase_actual_str = fase_reciente.get_fase_display() if fase_reciente else "Despliegue"
+        fase_fecha_str = fase_reciente.fecha.strftime('%d/%m/%Y') if fase_reciente else (p.start.strftime('%d/%m/%Y') if p.start else "N/A")
+        historial_fases = list(p.fases.order_by('fecha', 'created_at'))
+
+        equipos = list(p.inventario_equipos.all().order_by('hostname', 'tipo_equipo'))
+        total_equipos += len(equipos)
+
+        items_tecnicos = []
+        p_tareas_ok = 0
+        p_tareas_total = 0
+
+        for nombre_label, attr_name in campos_tecnicos_claves:
+            val = getattr(p, attr_name, None) or 'Pendiente'
+            val_limpio = str(val).strip()
+            val_lower = val_limpio.lower()
+
+            if val_lower in ['completado', 'ok', 'cumple', 'si', 'sí', 'instalado', 'activo']:
+                p_tareas_ok += 1
+                p_tareas_total += 1
+            elif val_lower in ['n/a', 'no aplica', 'no requiere']:
+                pass
+            else:
+                p_tareas_total += 1
+
+            items_tecnicos.append((nombre_label, val_limpio))
+
+        total_tareas_ok += p_tareas_ok
+        total_tareas_total += p_tareas_total
+        pct_tecnico = int((p_tareas_ok / p_tareas_total * 100)) if p_tareas_total > 0 else 0
+
+        proyectos_data.append({
+            'obj': p,
+            'fase_actual': fase_actual_str,
+            'fase_fecha': fase_fecha_str,
+            'historial_fases': historial_fases,
+            'equipos': equipos,
+            'cantidad_equipos': len(equipos),
+            'items_tecnicos': items_tecnicos,
+            'tareas_ok': p_tareas_ok,
+            'tareas_total': p_tareas_total,
+            'porcentaje_tecnico': pct_tecnico,
+        })
+
+    total_proyectos = len(proyectos_data)
+    proyectos_con_inventario = sum(1 for item in proyectos_data if item['cantidad_equipos'] > 0)
+    proyectos_sin_inventario = total_proyectos - proyectos_con_inventario
+    pct_global = int((total_tareas_ok / total_tareas_total * 100)) if total_tareas_total > 0 else 0
+    fecha_gen = timezone.now().strftime('%d/%m/%Y %H:%M')
+    usuario_gen = request.user.get_full_name() or request.user.username or 'Administrador'
+
+    # 1. TÍTULO PRINCIPAL
+    titulo = doc.add_heading('Informe Ejecutivo de Proyectos', level=0)
     titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # Fecha del informe
-    fecha = doc.add_paragraph()
-    fecha.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    fecha_run = fecha.add_run(f"Generado el: {timezone.now().strftime('%d/%m/%Y %H:%M')}")
-    fecha_run.font.size = Pt(10)
-    fecha_run.font.color.rgb = RGBColor(128, 128, 128)
+    subtitulo = doc.add_paragraph()
+    subtitulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub_run = subtitulo.add_run('Control y Seguimiento de Infraestructura | Estado: En Curso')
+    sub_run.font.size = Pt(12)
+    sub_run.font.color.rgb = RGBColor(70, 70, 70)
+    sub_run.bold = True
 
-    # Espacio
+    meta_p = doc.add_paragraph()
+    meta_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    meta_run = meta_p.add_run(f'Generado el: {fecha_gen} | Por: {usuario_gen}')
+    meta_run.font.size = Pt(9.5)
+    meta_run.font.color.rgb = RGBColor(120, 120, 120)
+
     doc.add_paragraph()
 
-    # Resumen ejecutivo
-    total_proyectos = proyectos.count()
-    if total_proyectos > 0:
-        resumen = doc.add_heading('Resumen Ejecutivo', level=1)
+    # 2. RESUMEN EJECUTIVO (KPIs)
+    doc.add_heading('Resumen Ejecutivo', level=1)
+    kpi_table = doc.add_table(rows=2, cols=4)
+    kpi_table.style = 'Light Grid Accent 1'
 
-        p = doc.add_paragraph()
-        p.add_run(f'Total de proyectos en curso: ').bold = True
-        p.add_run(str(total_proyectos))
+    kpi_headers = ['Proyectos en Curso', 'Infraestructura Total', 'Con Inventario', 'Cumplimiento Técnico']
+    kpi_values = [
+        f'{total_proyectos}',
+        f'{total_equipos} equipos',
+        f'{proyectos_con_inventario} / {total_proyectos}',
+        f'{pct_global}%'
+    ]
 
-        # Contar proyectos con inventario
-        proyectos_con_inventario = sum(1 for p in proyectos if p.inventario_equipos.exists())
-        p = doc.add_paragraph()
-        p.add_run(f'Proyectos con inventario: ').bold = True
-        p.add_run(f'{proyectos_con_inventario} de {total_proyectos}')
+    for idx, (h, v) in enumerate(zip(kpi_headers, kpi_values)):
+        cell_h = kpi_table.rows[0].cells[idx]
+        cell_h.text = h
+        cell_h.paragraphs[0].runs[0].font.bold = True
+        cell_h.paragraphs[0].runs[0].font.size = Pt(9.5)
 
-        # Contar proyectos con contacto
-        proyectos_con_contacto = sum(1 for p in proyectos if p.contacto)
-        p = doc.add_paragraph()
-        p.add_run(f'Proyectos con contacto asignado: ').bold = True
-        p.add_run(f'{proyectos_con_contacto} de {total_proyectos}')
+        cell_v = kpi_table.rows[1].cells[idx]
+        cell_v.text = v
+        cell_v.paragraphs[0].runs[0].font.bold = True
+        cell_v.paragraphs[0].runs[0].font.size = Pt(11)
 
-        doc.add_paragraph()
+    doc.add_paragraph()
 
-    # Detalle de proyectos
-    doc.add_heading('Detalle de Proyectos', level=1)
+    # 3. SECCIÓN 1: TABLA RESUMEN CONSOLIDADO
+    doc.add_heading('1. Resumen Consolidado de Proyectos en Curso', level=1)
 
-    for proyecto in proyectos:
-        # Título del proyecto
-        project_heading = doc.add_heading(
-            f"Proyecto: {proyecto.project} (ID: {proyecto.id_project})",
-            level=2
-        )
+    summary_table = doc.add_table(rows=1, cols=7)
+    summary_table.style = 'Medium Grid 1 Accent 1'
 
-        # Información básica
-        info_table = doc.add_table(rows=4, cols=2)
+    s_headers = ['#', 'ID', 'RF', 'Nombre del Proyecto', 'Fase Actual', 'Contacto', 'Equipos']
+    for idx, header in enumerate(s_headers):
+        cell = summary_table.rows[0].cells[idx]
+        cell.text = header
+        cell.paragraphs[0].runs[0].font.bold = True
+        cell.paragraphs[0].runs[0].font.size = Pt(9.5)
+
+    for idx, item in enumerate(proyectos_data, 1):
+        p = item['obj']
+        row_cells = summary_table.add_row().cells
+        row_cells[0].text = str(idx)
+        row_cells[1].text = str(p.id_project)
+        row_cells[2].text = p.rf or '-'
+        row_cells[3].text = p.project or 'Sin nombre'
+        row_cells[4].text = f"{item['fase_actual']} ({item['fase_fecha']})"
+        row_cells[5].text = p.contacto.nombre if p.contacto else 'Sin asignar'
+        row_cells[6].text = str(item['cantidad_equipos'])
+
+        for cell in row_cells:
+            cell.paragraphs[0].runs[0].font.size = Pt(9)
+
+    doc.add_page_break()
+
+    # 4. SECCIÓN 2: DETALLE EXTENDIDO POR PROYECTO
+    doc.add_heading('2. Detalle Técnico e Infraestructura por Proyecto', level=1)
+
+    for item in proyectos_data:
+        p = item['obj']
+
+        # Encabezado de Proyecto
+        p_heading = doc.add_heading(f"ID {p.id_project} - {p.project}", level=2)
+
+        p_meta = doc.add_paragraph()
+        rf_text = f"RF: {p.rf or 'N/A'}"
+        estado_text = f"Estado: {p.estado}"
+        fase_text = f"Fase Actual: {item['fase_actual']} ({item['fase_fecha']})"
+        p_meta.add_run(f"{rf_text}  |  {estado_text}  |  {fase_text}").bold = True
+
+        # Tabla de Información General del Proyecto
+        info_table = doc.add_table(rows=3, cols=2)
         info_table.style = 'Light Grid Accent 1'
 
-        # Llenar tabla de información básica
-        info_data = [
-            ('Estado:', proyecto.estado or 'N/A'),
-            ('Líder de Proyecto:', proyecto.project_leader or 'N/A'),
-            ('RF:', proyecto.rf or 'N/A'),
-            ('Servicio:', proyecto.servicio or 'N/A'),
+        info_rows = [
+            ('Líder de Proyecto:', p.project_leader or 'No especificado'),
+            ('Contacto Principal:', f"{p.contacto.nombre} ({p.contacto.cargo or p.contacto.area or ''}) - Tel: {p.contacto.telefono or 'N/A'} - Correo: {p.contacto.correo or 'N/A'}" if p.contacto else 'Sin asignar'),
+            ('Fechas (Inicio / Fin):', f"Inicio: {p.start.strftime('%d/%m/%Y') if p.start else 'N/D'}  |  Fin: {p.finish.strftime('%d/%m/%Y') if p.finish else 'N/D'}"),
         ]
 
-        for idx, (label, value) in enumerate(info_data):
-            row = info_table.rows[idx]
-            row.cells[0].text = label
-            row.cells[0].paragraphs[0].runs[0].font.bold = True
-            row.cells[1].text = str(value)
+        for r_idx, (label, val) in enumerate(info_rows):
+            r_cells = info_table.rows[r_idx].cells
+            r_cells[0].text = label
+            r_cells[0].paragraphs[0].runs[0].font.bold = True
+            r_cells[0].paragraphs[0].runs[0].font.size = Pt(9)
+            r_cells[1].text = val
+            r_cells[1].paragraphs[0].runs[0].font.size = Pt(9)
 
-        doc.add_paragraph()
+        # Historial de Fases
+        if item['historial_fases']:
+            fases_str = " -> ".join([f"{f.get_fase_display()} ({f.fecha.strftime('%d/%m/%Y')})" for f in item['historial_fases']])
+            p_fases = doc.add_paragraph()
+            p_fases.add_run('Historial de Fases: ').bold = True
+            p_fases.add_run(fases_str).italic = True
+            p_fases.runs[0].font.size = Pt(9)
+            p_fases.runs[1].font.size = Pt(9)
 
-        # Contacto
-        if proyecto.contacto:
-            contacto_heading = doc.add_heading('Contacto', level=3)
-            contacto_para = doc.add_paragraph()
-            contacto_para.add_run(f"Nombre: ").bold = True
-            contacto_para.add_run(f"{proyecto.contacto.nombre}\n")
-            contacto_para.add_run(f"Correo: ").bold = True
-            contacto_para.add_run(f"{proyecto.contacto.correo or 'N/A'}\n")
-            contacto_para.add_run(f"Teléfono: ").bold = True
-            contacto_para.add_run(f"{proyecto.contacto.telefono or 'N/A'}\n")
-            if proyecto.contacto.cargo:
-                contacto_para.add_run(f"Cargo: ").bold = True
-                contacto_para.add_run(f"{proyecto.contacto.cargo}")
-        else:
-            doc.add_heading('Contacto', level=3)
-            p = doc.add_paragraph()
-            p.add_run('Sin contacto asignado').italic = True
+        # Verificación Técnica Operativa (Checklists con Títulos de Columna)
+        doc.add_heading(f"Verificación Técnica Operativa (Avance: {item['tareas_ok']}/{item['tareas_total']} - {item['porcentaje_tecnico']}%)", level=3)
 
-        doc.add_paragraph()
+        # Crear tabla con encabezados claros: Parámetro de Verificación | Estado | Parámetro de Verificación | Estado
+        tech_items = item['items_tecnicos']
+        half = (len(tech_items) + 1) // 2
+        chk_table = doc.add_table(rows=half + 1, cols=4)
+        chk_table.style = 'Light Grid Accent 1'
 
-        # Inventario
-        inventario = proyecto.inventario_equipos.all()
-        if inventario:
-            doc.add_heading('Inventario de Equipos', level=3)
+        # Fila de Encabezados con Títulos Explícitos
+        chk_headers = ['Parámetro de Verificación', 'Estado', 'Parámetro de Verificación', 'Estado']
+        for ch_idx, ch_title in enumerate(chk_headers):
+            h_cell = chk_table.rows[0].cells[ch_idx]
+            h_cell.text = ch_title
+            h_cell.paragraphs[0].runs[0].font.bold = True
+            h_cell.paragraphs[0].runs[0].font.size = Pt(8.5)
 
-            # Tabla de inventario
-            inv_table = doc.add_table(rows=1, cols=5)
+        for row_idx in range(half):
+            row_cells = chk_table.rows[row_idx + 1].cells
+
+            # Lado izquierdo
+            if row_idx < len(tech_items):
+                lbl, st = tech_items[row_idx]
+                row_cells[0].text = lbl
+                row_cells[0].paragraphs[0].runs[0].font.size = Pt(8.5)
+                row_cells[1].text = st
+                row_cells[1].paragraphs[0].runs[0].font.bold = True
+                row_cells[1].paragraphs[0].runs[0].font.size = Pt(8.5)
+
+            # Lado derecho
+            right_idx = row_idx + half
+            if right_idx < len(tech_items):
+                lbl_r, st_r = tech_items[right_idx]
+                row_cells[2].text = lbl_r
+                row_cells[2].paragraphs[0].runs[0].font.size = Pt(8.5)
+                row_cells[3].text = st_r
+                row_cells[3].paragraphs[0].runs[0].font.bold = True
+                row_cells[3].paragraphs[0].runs[0].font.size = Pt(8.5)
+
+        # Datos técnicos complementarios si existen
+        if p.computo or p.servicio or p.proveedor or p.base_de_datos or p.balanceo:
+            comp_p = doc.add_paragraph()
+            comp_parts = []
+            if p.computo:
+                comp_parts.append(f"Cómputo: {p.computo}")
+            if p.servicio:
+                comp_parts.append(f"Servicio: {p.servicio}")
+            if p.proveedor:
+                comp_parts.append(f"Proveedor: {p.proveedor}")
+            if p.base_de_datos:
+                comp_parts.append(f"BD: {p.base_de_datos}")
+            if p.balanceo:
+                comp_parts.append(f"Balanceo: {p.balanceo}")
+            comp_p.add_run("Información Técnica: ").bold = True
+            comp_p.add_run(" | ".join(comp_parts))
+            comp_p.runs[0].font.size = Pt(9)
+            comp_p.runs[1].font.size = Pt(9)
+
+        # Inventario de Equipos
+        doc.add_heading(f"Inventario de Equipos ({item['cantidad_equipos']})", level=3)
+
+        if item['equipos']:
+            inv_table = doc.add_table(rows=1, cols=8)
             inv_table.style = 'Medium Grid 1 Accent 1'
 
-            # Encabezados
-            headers = ['Tipo de Equipo', 'Hostname', 'IP Gestión', 'Ubicación', 'Sistema Operativo']
-            header_cells = inv_table.rows[0].cells
-            for idx, header in enumerate(headers):
-                header_cells[idx].text = header
-                header_cells[idx].paragraphs[0].runs[0].font.bold = True
+            inv_headers = ['Hostname', 'Tipo', 'Ubicación', 'CPU/RAM', 'IP Gestión', 'IP Servicios', 'IP Producción', 'Sistema Operativo']
+            for h_idx, h_text in enumerate(inv_headers):
+                cell = inv_table.rows[0].cells[h_idx]
+                cell.text = h_text
+                cell.paragraphs[0].runs[0].font.bold = True
+                cell.paragraphs[0].runs[0].font.size = Pt(8.5)
 
-            # Datos del inventario
-            for item in inventario:
-                row_cells = inv_table.add_row().cells
-                row_cells[0].text = item.tipo_equipo or 'N/A'
-                row_cells[1].text = item.hostname or 'N/A'
-                row_cells[2].text = item.ip_gestion or 'N/A'
-                row_cells[3].text = item.ubicacion or 'N/A'
-                row_cells[4].text = item.sistema_operativo or 'N/A'
+            for eq in item['equipos']:
+                r_cells = inv_table.add_row().cells
+                h_name = eq.hostname or 'Sin Hostname'
+                if eq.codigo or eq.ot:
+                    h_name += f"\n({eq.codigo or ''} {eq.ot or ''})".strip()
+                r_cells[0].text = h_name
+                r_cells[1].text = eq.tipo_equipo or 'N/D'
+                r_cells[2].text = eq.ubicacion or '-'
+                r_cells[3].text = f"CPU: {eq.cpu or '-'}\nRAM: {eq.ram or '-'}"
+                r_cells[4].text = eq.ip_gestion or '-'
+                r_cells[5].text = eq.ip_servicios or '-'
+                r_cells[6].text = eq.ip_produccion or '-'
+                r_cells[7].text = eq.sistema_operativo or 'N/D'
+
+                for cell in r_cells:
+                    cell.paragraphs[0].runs[0].font.size = Pt(8)
         else:
-            doc.add_heading('Inventario de Equipos', level=3)
-            p = doc.add_paragraph()
-            p.add_run('No hay equipos registrados').italic = True
+            no_inv_p = doc.add_paragraph()
+            no_inv_p.add_run('No hay equipos registrados en el inventario para este proyecto.').italic = True
+            no_inv_p.runs[0].font.size = Pt(9)
+
+        # Observaciones
+        if p.observaciones:
+            obs_p = doc.add_paragraph()
+            obs_p.add_run('Observaciones / Notas: ').bold = True
+            obs_p.add_run(p.observaciones)
+            obs_p.runs[0].font.size = Pt(9)
+            obs_p.runs[1].font.size = Pt(9)
 
         # Separador entre proyectos
         doc.add_paragraph()
-        doc.add_paragraph('_' * 50)
+        sep_p = doc.add_paragraph()
+        sep_run = sep_p.add_run('—' * 45)
+        sep_run.font.color.rgb = RGBColor(180, 180, 180)
         doc.add_paragraph()
 
     # Guardar en buffer
