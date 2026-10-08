@@ -705,6 +705,13 @@ const detailColumns = [
             }
         }
 
+        function getProjectFieldLabel(fieldName) {
+            if (fieldName === 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)') {
+                return 'CONECTIVIDAD AWX';
+            }
+            return fieldName;
+        }
+
         /**
          * Configura y rellena el formulario del modal para agregar o editar un proyecto.
          * @param {object} [project={}] - El objeto del proyecto a editar. Si está vacío, se configura para agregar uno nuevo.
@@ -766,7 +773,7 @@ const detailColumns = [
                     }
                     fieldHtml += `</select></div>`;
                 } else if (isEdit && checklistFields.has(col)) {
-                    fieldHtml += `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${col.replace(/_/g, ' ')}</label>`;
+                    fieldHtml += `<div class="${colClass} mb-3"><label for="field-${col}" class="form-label">${getProjectFieldLabel(col).replace(/_/g, ' ')}</label>`;
                     fieldHtml += `<select class="form-select" id="field-${col}" name="${col}">`;
                     checklistOptions.forEach(option => {
                         fieldHtml += `<option value="${option}" ${String(value).trim().toLowerCase() === option.toLowerCase() ? 'selected' : ''}>${option}</option>`;
@@ -977,7 +984,7 @@ const detailColumns = [
                         } else {
                             const value = project[dataKey] ?? '';
                             let displayValue = getStyledContent(value);
-                            detailsHtml += `<div class="col-md-6 mb-2"><span class="detail-label">${col.replace(/_/g, ' ').toUpperCase()}:</span> ${displayValue}</div>`;
+                            detailsHtml += `<div class="col-md-6 mb-2"><span class="detail-label">${getProjectFieldLabel(col).replace(/_/g, ' ').toUpperCase()}:</span> ${displayValue}</div>`;
                         }
                     }
                 });
@@ -1955,33 +1962,33 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                 }
 
                 // Función para normalizar los nombres de las columnas y agruparlas
-                const getColumnTitle = (field) => {
-                    if (field.startsWith('UCMDB Triara')) {
+                const getPendingColumnLabel = (fieldName) => {
+                    if (fieldName.startsWith('UCMDB Triara')) {
                         return 'UCMDB';
                     }
-                    if (field === 'CAMBIO' || field === 'CAMBIO PASO OPERACIÓN (OLA)') {
+                    if (fieldName === 'CAMBIO' || fieldName === 'CAMBIO PASO OPERACIÓN (OLA)') {
                         return 'Cambio';
                     }
-                    return field;
+                    return getProjectFieldLabel(fieldName);
                 };
 
-                // Agrupar los campos originales bajo un título de columna normalizado
-                const groupedFields = {};
-                fieldsWithPendientes.forEach(field => {
-                    const title = getColumnTitle(field);
-                    if (!groupedFields[title]) {
-                        groupedFields[title] = [];
+                // Las etiquetas visibles agrupan campos, pero se conservan sus claves originales.
+                const fieldsByDisplayLabel = {};
+                fieldsWithPendientes.forEach(fieldName => {
+                    const displayLabel = getPendingColumnLabel(fieldName);
+                    if (!fieldsByDisplayLabel[displayLabel]) {
+                        fieldsByDisplayLabel[displayLabel] = [];
                     }
-                    groupedFields[title].push(field);
+                    fieldsByDisplayLabel[displayLabel].push(fieldName);
                 });
 
-                const displayColumns = Object.keys(groupedFields).sort();
+                const displayLabels = Object.keys(fieldsByDisplayLabel).sort();
 
                 // 2. Generar el encabezado de la tabla dinámicamente con los títulos normalizados
                 const pendientesTableHeader = document.querySelector('#pendientes-table-container thead tr');
                 if (pendientesTableHeader) {
                     pendientesTableHeader.innerHTML = '<th>Proyecto</th>' +
-                                                      displayColumns.map(title => `<th>${title}</th>`).join('');
+                                                      displayLabels.map(label => `<th>${label}</th>`).join('');
                 }
 
                 // 3. Llenar el cuerpo de la tabla
@@ -1990,19 +1997,19 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                     tr.dataset.id = project['Id Project']; // Asignar el ID del proyecto a la fila
                     let rowHtml = `<td><span class="project-name-link">${project.Project}</span></td>`; // Nombre del proyecto
 
-                    displayColumns.forEach(title => {
-                        const originalFields = groupedFields[title];
+                    displayLabels.forEach(displayLabel => {
+                        const originalFieldNames = fieldsByDisplayLabel[displayLabel];
                         let cellContent = '';
                         // Comprobar si alguna de las columnas originales para este título tiene un estado relevante
-                        for (const field of originalFields) {
-                            const rawValue = String(project[field] ?? '').trim();
+                        for (const fieldName of originalFieldNames) {
+                            const rawValue = String(project[fieldName] ?? '').trim();
                             const fieldValue = rawValue.toLowerCase();
                             if (fieldValue === 'pendiente') {
-                                cellContent = `<td class="text-center"><span class="pendiente-cell" data-field="${field}" data-value="Pendiente" data-project-id="${project['Id Project']}" title="${field}"><i class="bi bi-exclamation-triangle-fill icon-pendiente"></i></span></td>`;
+                                cellContent = `<td class="text-center"><span class="pendiente-cell" data-field="${fieldName}" data-value="Pendiente" data-project-id="${project['Id Project']}" title="${fieldName}"><i class="bi bi-exclamation-triangle-fill icon-pendiente"></i></span></td>`;
                                 break; // Encontramos un pendiente, no necesitamos seguir buscando
                             } else if (fieldValue === 'en curso') {
                                 // Guardamos el primer campo que esté en curso (si no hay pendientes)
-                                cellContent = `<td class="text-center"><span class="pendiente-cell" data-field="${field}" data-value="En Curso" data-project-id="${project['Id Project']}" title="${field}"><i class="bi bi-clock-fill icon-en-curso"></i></span></td>`;
+                                cellContent = `<td class="text-center"><span class="pendiente-cell" data-field="${fieldName}" data-value="En Curso" data-project-id="${project['Id Project']}" title="${fieldName}"><i class="bi bi-clock-fill icon-en-curso"></i></span></td>`;
                                 // No rompemos el bucle, por si hay un "pendiente" que tiene más prioridad
                             }
                         }
