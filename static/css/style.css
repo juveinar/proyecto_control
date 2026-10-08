@@ -874,6 +874,20 @@
     padding: 1rem 0;
 }
 
+.project-observaciones-preview {
+    height: 3.5rem;
+    min-height: 3.5rem;
+    resize: none;
+    overflow: hidden;
+}
+
+#projectObservacionesEditor {
+    min-height: 55vh;
+    resize: vertical;
+    font-family: 'Courier New', Courier, monospace;
+    white-space: pre-wrap;
+}
+
 /* Ajuste para permitir que el modal de observaciones se expanda libremente */
 #observacionesModal .modal-dialog {
     max-width: 98vw;

@@ -451,6 +451,23 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="projectObservacionesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Observaciones del proyecto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="projectObservacionesEditor" class="form-control" rows="18" spellcheck="false"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveProjectObservacionesBtn">Guardar texto</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="detailsModalLabel"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body" id="detailsModalBody"></div><div class="modal-footer" style="justify-content: flex-start;">
         <button type="button" class="btn btn-custom" id="prevProjectBtn">Anterior</button>
         <button type="button" class="btn btn-custom" id="nextProjectBtn">Siguiente</button>

@@ -110,11 +110,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const tableBody = document.getElementById('projects-table-body');
         const pendientesTableBody = document.getElementById('pendientes-table-body');
         const projectModalEl = document.getElementById('projectModal');
+        const projectObservacionesModalEl = document.getElementById('projectObservacionesModal');
         const detailsModalEl = document.getElementById('detailsModal');
         const observacionesModalEl = document.getElementById('observacionesModal');
 
         // Solo inicializar modales si existen en la página
         const projectModal = projectModalEl ? new bootstrap.Modal(projectModalEl) : null;
+        const projectObservacionesModal = projectObservacionesModalEl ? new bootstrap.Modal(projectObservacionesModalEl) : null;
         const detailsModal = detailsModalEl ? new bootstrap.Modal(detailsModalEl) : null;
         const observacionesModal = observacionesModalEl ? new bootstrap.Modal(observacionesModalEl) : null;
 
@@ -127,6 +129,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Solo hacer modales arrastrables si existen
         if (projectModalEl) makeModalDraggable(projectModalEl);
+        if (projectObservacionesModalEl) makeModalDraggable(projectObservacionesModalEl);
         if (detailsModalEl) makeModalDraggable(detailsModalEl);
         if (observacionesModalEl) makeModalDraggable(observacionesModalEl);
 
@@ -716,6 +719,51 @@ const detailColumns = [
             return fieldName;
         }
 
+        let projectObservacionesTarget = null;
+        let reopenProjectModalAfterObservacionesEditor = false;
+
+        function openProjectObservacionesEditor(target) {
+            if (!target || !projectObservacionesModal || !projectObservacionesModalEl) return;
+
+            projectObservacionesTarget = target;
+            const editor = document.getElementById('projectObservacionesEditor');
+            if (editor) editor.value = target.value;
+            reopenProjectModalAfterObservacionesEditor = !!projectModalEl?.classList.contains('show');
+
+            projectObservacionesModalEl.addEventListener('hidden.bs.modal', () => {
+                const targetToRestore = projectObservacionesTarget;
+                if (reopenProjectModalAfterObservacionesEditor) {
+                    reopenProjectModalAfterObservacionesEditor = false;
+                    projectModal?.show();
+                    projectModalEl?.addEventListener('shown.bs.modal', () => targetToRestore?.focus(), { once: true });
+                }
+                projectObservacionesTarget = null;
+            }, { once: true });
+
+            if (reopenProjectModalAfterObservacionesEditor && projectModalEl) {
+                projectModalEl.addEventListener('hidden.bs.modal', () => projectObservacionesModal.show(), { once: true });
+                projectModal.hide();
+            } else {
+                projectObservacionesModal.show();
+            }
+
+            if (editor) {
+                projectObservacionesModalEl.addEventListener('shown.bs.modal', () => editor.focus(), { once: true });
+            }
+        }
+
+        const saveProjectObservacionesBtn = document.getElementById('saveProjectObservacionesBtn');
+        if (saveProjectObservacionesBtn) {
+            saveProjectObservacionesBtn.addEventListener('click', () => {
+                const editor = document.getElementById('projectObservacionesEditor');
+                if (projectObservacionesTarget && editor) {
+                    projectObservacionesTarget.value = editor.value;
+                    projectObservacionesTarget.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                projectObservacionesModal?.hide();
+            });
+        }
+
         /**
          * Configura y rellena el formulario del modal para agregar o editar un proyecto.
          * @param {object} [project={}] - El objeto del proyecto a editar. Si está vacío, se configura para agregar uno nuevo.
@@ -783,7 +831,9 @@ const detailColumns = [
                         fieldHtml += `<option value="${option}" ${String(value).trim().toLowerCase() === option.toLowerCase() ? 'selected' : ''}>${option}</option>`;
                     });
                     fieldHtml += `</select></div>`;
-                } else if (col === 'Computo' || col === 'OBSERVACIONES') {
+                } else if (col === 'OBSERVACIONES') {
+                    fieldHtml = `<div class="col-12 mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><div class="input-group"><textarea class="form-control project-observaciones-preview" id="field-${col}" name="${dataKey}" rows="2" aria-label="Observaciones del proyecto. Presione F2 para abrir el editor completo">${value}</textarea><button type="button" class="btn btn-outline-secondary" data-action="expand-project-observaciones" title="Abrir editor completo (F2)" aria-label="Abrir editor completo"><i class="bi bi-arrows-angle-expand"></i></button></div></div>`;
+                } else if (col === 'Computo') {
                     fieldHtml = `<div class="col-12 mb-3"><label for="field-${col}" class="form-label">${col.toUpperCase()}</label><textarea class="form-control" id="field-${col}" name="${col}" rows="4">${value}</textarea></div>`;
                 } else if (col === 'CONTACTO') {
                     // Special handling for CONTACTO field - dropdown with add button
@@ -852,8 +902,20 @@ const detailColumns = [
             accordionHtml += '</div>';
             formContainer.innerHTML = accordionHtml;
 
+            const projectObservacionesField = document.getElementById('field-OBSERVACIONES');
+            if (projectObservacionesField) {
+                projectObservacionesField.addEventListener('keydown', event => {
+                    if (event.key === 'F2') {
+                        event.preventDefault();
+                        openProjectObservacionesEditor(projectObservacionesField);
+                    }
+                });
+                projectObservacionesField.parentElement.querySelector('[data-action="expand-project-observaciones"]')
+                    ?.addEventListener('click', () => openProjectObservacionesEditor(projectObservacionesField));
+            }
+
             projectModal._element.addEventListener('shown.bs.modal', () => {
-                formContainer.querySelectorAll('textarea').forEach(autoResizeTextarea);
+                formContainer.querySelectorAll('textarea:not(.project-observaciones-preview)').forEach(autoResizeTextarea);
             }, { once: true });
 
             // Listener para auto-actualizar fase cuando Estado cambia a "Cerrado"
