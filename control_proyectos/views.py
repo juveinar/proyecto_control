@@ -105,6 +105,8 @@ def api_projects(request):
                 'MONITOREO ELASTIC': p.monitoreo_elastic or '',
                 'UCMDB': p.ucmdb or '',
                 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)': p.conectividad_awx or '',
+                'PAM': p.pam or '',
+                'Registro DNS': p.registro_dns or '',
                 'CAMBIO PASO OPERACIÓN (OLA)': p.cambio_paso_operacion_ola or '',
                 'Base de Datos': p.base_de_datos or '',
                 'Balanceo': p.balanceo or '',
@@ -224,6 +226,8 @@ def api_projects_add(request):
             'MONITOREO ELASTIC': 'monitoreo_elastic',
             'UCMDB': 'ucmdb',
             'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)': 'conectividad_awx',
+            'PAM': 'pam',
+            'Registro DNS': 'registro_dns',
             'CAMBIO PASO OPERACIÓN (OLA)': 'cambio_paso_operacion_ola',
         }
 
@@ -333,6 +337,8 @@ def api_projects_add(request):
             'Start': proyecto.start.strftime('%Y-%m-%d') if proyecto.start else None,
             'Finish': proyecto.finish.strftime('%Y-%m-%d') if proyecto.finish else None,
             'Computo': proyecto.computo or '',
+            'PAM': proyecto.pam or '',
+            'Registro DNS': proyecto.registro_dns or '',
             'CANTIDAD MAQUINAS': proyecto.cantidad_maquinas or '',
             'COD SERV_HOSTNAME': proyecto.cod_serv_hostname or '',
             'PLATAFORMA': proyecto.plataforma or '',
@@ -407,6 +413,8 @@ def api_projects_update(request, project_id):
             'MONITOREO ELASTIC': 'monitoreo_elastic',
             'UCMDB': 'ucmdb',
             'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)': 'conectividad_awx',
+            'PAM': 'pam',
+            'Registro DNS': 'registro_dns',
             'CAMBIO PASO OPERACIÓN (OLA)': 'cambio_paso_operacion_ola',
         }
 
@@ -535,6 +543,8 @@ def api_projects_update(request, project_id):
             'MONITOREO ELASTIC': proyecto.monitoreo_elastic or '',
             'UCMDB': proyecto.ucmdb or '',
             'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)': proyecto.conectividad_awx or '',
+            'PAM': proyecto.pam or '',
+            'Registro DNS': proyecto.registro_dns or '',
             'CAMBIO PASO OPERACIÓN (OLA)': proyecto.cambio_paso_operacion_ola or '',
             'Base de Datos': proyecto.base_de_datos or '',
             'Balanceo': proyecto.balanceo or '',
@@ -593,6 +603,8 @@ def api_projects_update_status(request, project_id):
             'MONITOREO ELASTIC': 'monitoreo_elastic',
             'UCMDB': 'ucmdb',
             'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)': 'conectividad_awx',
+            'PAM': 'pam',
+            'Registro DNS': 'registro_dns',
             'CAMBIO PASO OPERACIÓN (OLA)': 'cambio_paso_operacion_ola',
             'WINDOWS LICENCIA ACTIVADA': 'windows_licencia_activada',
         }

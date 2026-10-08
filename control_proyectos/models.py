@@ -39,6 +39,8 @@ class Proyecto(models.Model):
     monitoreo_elastic = models.CharField(max_length=100, verbose_name="Monitoreo Elastic", default="Pendiente", blank=True, null=True)
     ucmdb = models.CharField(max_length=100, verbose_name="UCMDB", default="Pendiente", blank=True, null=True)
     conectividad_awx = models.CharField(max_length=100, verbose_name="Conectividad AWX 172.18.90.250 (SOLO UNIX)", default="Pendiente", blank=True, null=True)
+    pam = models.CharField(max_length=100, verbose_name="PAM", default="Pendiente", blank=True, null=True)
+    registro_dns = models.CharField(max_length=100, verbose_name="Registro DNS", default="Pendiente", blank=True, null=True)
     cambio_paso_operacion_ola = models.CharField(max_length=100, verbose_name="Cambio Paso Operación (OLA)", default="Pendiente", blank=True, null=True)
 
     # Campos adicionales comunes (pueden agregarse más según necesidad)

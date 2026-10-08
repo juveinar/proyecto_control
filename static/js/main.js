@@ -179,6 +179,8 @@ const detailColumns = [
     'MONITOREO ELASTIC',
     'UCMDB',
     'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)',
+    'PAM',
+    'Registro DNS',
     'RT',
     'SERVICIO',
     'OBSERVACIONES',
@@ -217,6 +219,8 @@ const detailColumns = [
             'MONITOREO ELASTIC',
             'UCMDB',
             'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)',
+            'PAM',
+            'Registro DNS',
             'RT',
             'SERVICIO',
             'CAMBIO',
@@ -742,7 +746,7 @@ const detailColumns = [
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
                 'Detalles de Cómputo': ['DOMINIO', 'SERVICIO', 'Base de Datos', 'Balanceo', 'Computo'],
-                'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
+                'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)', 'PAM', 'Registro DNS']
             };
 
             const checklistFields = new Set(fieldGroups['Requisitos para Paso a Operación']);
@@ -910,7 +914,7 @@ const detailColumns = [
             const fieldGroups = {
                 'Detalles del Proyecto': ['Id Project', 'Project', 'RF', 'Estado', 'Start', 'Finish', 'OBSERVACIONES', 'CONTACTO', 'CAMBIO'],
                 'Detalles de Cómputo': ['CANTIDAD MAQUINAS', 'COD SERV_HOSTNAME', 'UBICACION', 'SO', 'DOMINIO', 'SERVICIO', 'INVENTARIO', 'Base de Datos', 'Balanceo', 'Computo'],
-                'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)']
+                'Requisitos para Paso a Operación': ['WINDOWS LICENCIA ACTIVADA', 'NTP', 'Antivirus', 'SCAN', 'CONFIG BACKUP', 'MONITOREO NAGIOS', 'MONITOREO ELASTIC', 'UCMDB', 'CONECTIVIDAD AWX 172.18.90.250 (SOLO UNIX)', 'PAM', 'Registro DNS']
             };
 
             console.log('Field groups:', fieldGroups);
@@ -1916,10 +1920,12 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
             if (pendientesTableBody) pendientesTableBody.innerHTML = '';
             if (pendientesTitle) pendientesTitle.textContent = 'Resumen de Pendientes';
 
-            // Filtrar proyectos que no están finalizados (FINALIZADO !== 'OK')
-            const notFinishedProjects = allProjects.filter(p => !p.Estado || String(p.Estado).trim().toLowerCase() !== 'finalizado');
+            // Solo incluir proyectos cuyo estado actual sea En Curso.
+            const inProgressProjects = allProjects.filter(
+                project => String(project.Estado ?? '').trim().toLowerCase() === 'en curso'
+            );
 
-            if (notFinishedProjects.length > 0) {
+            if (inProgressProjects.length > 0) {
                 // Definir campos a excluir de la detección de pendientes/en curso
                 const excludedKeysForPendientesCheck = new Set([
                     'Id Project', 'Project', 'Estado', 'Start', 'Finish', 'RF', 'Computo',
@@ -1932,7 +1938,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                 const fieldsWithPendientes = new Set();
                 const projectsWithRelevantPendientes = []; // Almacenará solo los proyectos que tienen pendientes/en curso
 
-                notFinishedProjects.forEach(project => {
+                inProgressProjects.forEach(project => {
                     let hasRelevantStatus = false;
                     for (const key in project) {
                         // Omitir columnas excluidas
@@ -1956,7 +1962,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                         pendientesTableHeader.innerHTML = '<th>Proyecto</th>'; // Restablecer encabezado
                     }
                     if (pendientesTableBody) {
-                        pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos con pendientes o en curso.</td></tr>`;
+                        pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos En Curso con pendientes.</td></tr>`;
                     }
                     return;
                 }
@@ -2026,7 +2032,7 @@ addEventListenerSafely('saveProjectBtn', 'click', async (e) => {
                     pendientesTableHeader.innerHTML = '<th>Proyecto</th>'; // Restablecer encabezado si no hay proyectos
                 }
                 if (pendientesTableBody) {
-                    pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos activos con pendientes.</td></tr>`;
+                    pendientesTableBody.innerHTML = `<tr><td colspan="1" class="text-center">No se encontraron proyectos En Curso con pendientes.</td></tr>`;
                 }
             }
         }
