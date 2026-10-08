@@ -530,13 +530,12 @@
             right: 20px;
             width: 320px;
             border-radius: 12px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-            border: 1px solid rgba(255,255,255,0.03);
+            background: var(--ai-surface);
+            border: 1px solid #30384a;
             box-shadow: 0 12px 28px rgba(0,0,0,0.55);
             z-index: 1050; /* Asegura que esté sobre otros elementos */
             transition: transform 0.4s cubic-bezier(.2,.9,.22,1), opacity 0.4s ease, box-shadow 220ms ease;
             overflow: hidden;
-            backdrop-filter: blur(6px);
             /* Oculto por defecto */
             transform: translateY(50px) scale(0.9);
             opacity: 0;
