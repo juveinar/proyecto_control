@@ -6,6 +6,7 @@ __pycache__/
 # Entornos
 .env
 venv_proyecto/
+venv_proyecto_anterior/
 .env.*
 
 # IDEs
